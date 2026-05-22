@@ -132,7 +132,7 @@ body {
   line-height: 1;
 }
 .hero {
-  background-image:url("../img/imagenportada.png");
+  background-image: url("img/imagenportada.png");
   padding: 5rem 2rem 4rem;
   display: flex;
   align-items: center;
