@@ -133,6 +133,8 @@ body {
 }
 .hero {
   background-image: url("img/imagenportada.png");
+  background-size: cover;
+  background-position: center;
   padding: 5rem 2rem 4rem;
   display: flex;
   align-items: center;
