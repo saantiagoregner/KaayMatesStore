@@ -1,0 +1,163 @@
+[
+  {
+    "id": 1,
+    "nombre": "Mate Artesanal Entrerriano",
+    "categoria": "mates",
+    "precio": 4500,
+    "imagen": "img/mateartesanalentrerriano.jpg",
+    "descripcion": "Mate de calabaza curado a mano, ideal para el agua caliente. Tradición guaraní con sello entrerriano.",
+    "stock": 15,
+    "destacado": true
+  },
+  {
+    "id": 2,
+    "nombre": "Mate de Madera Nativa",
+    "categoria": "mates",
+    "precio": 6800,
+    "imagen": "img/matemaderanativa.png",
+    "descripcion": "Tallado en madera de lapacho entrerriano. Único, resistente y de larga durabilidad.",
+    "stock": 8,
+    "destacado": false
+  },
+  {
+    "id": 3,
+    "nombre": "Mate Imperial Guayubira",
+    "categoria": "mates",
+    "precio": 9200,
+    "imagen": "img/imperialguaravira.png",
+    "descripcion": "Mate de guayubira con incrustaciones de alpaca. La joya de la artesanía mesopotámica.",
+    "stock": 5,
+    "destacado": true
+  },
+  {
+    "id": 4,
+    "nombre": "Mate de Cerámica Victoria",
+    "categoria": "mates",
+    "precio": 5300,
+    "imagen": "img/matevictoria.png",
+    "descripcion": "Cerámica esmaltada hecha en Victoria, Entre Ríos. Diseño floral único.",
+    "stock": 12,
+    "destacado": false
+  },
+  {
+    "id": 5,
+    "nombre": "Yerba Amanda Clásica 500g",
+    "categoria": "yerbas",
+    "precio": 1850,
+    "imagen": "img/yerbamanda.png",
+    "descripcion": "Yerba mate clásica elaborada en la Mesopotamia argentina. Sabor equilibrado y suave.",
+    "stock": 50,
+    "destacado": true
+  },
+  {
+    "id": 6,
+    "nombre": "Yerba Rosamonte Especial 500g",
+    "categoria": "yerbas",
+    "precio": 2100,
+    "imagen": "img/rosamonte.png",
+    "descripcion": "Mezcla especial con palos seleccionados. Cuerpo robusto, ideal para matear todo el día.",
+    "stock": 40,
+    "destacado": false
+  },
+  {
+    "id": 7,
+    "nombre": "Yerba del Litoral Compuesta 500g",
+    "categoria": "yerbas",
+    "precio": 2500,
+    "imagen": "img/yerbadelito.png",
+    "descripcion": "Yerba compuesta con hierbas del litoral: cedrón, menta y peperina. Sabor fresco y aromático.",
+    "stock": 30,
+    "destacado": true
+  },
+  {
+    "id": 8,
+    "nombre": "Yerba Don Basilio  500g",
+    "categoria": "yerbas",
+    "precio": 3200,
+    "imagen": "img/yerbadonbasilio.jpg",
+    "descripcion": "Producción orgánica certificada.",
+    "stock": 20,
+    "destacado": true
+  },
+  {
+    "id": 9,
+    "nombre": "Yerba Taragüi 1kg",
+    "categoria": "yerbas",
+    "precio": 3600,
+    "imagen": "img/taragui.png",
+    "descripcion": "El clásico rioplatense en formato familiar. La preferida de los entrerrianos.",
+    "stock": 60,
+    "destacado": false
+  },
+  {
+    "id": 10,
+    "nombre": "Bombilla pico de loro",
+    "categoria": "accesorios",
+    "precio": 2200,
+    "imagen": "img/picodelo.png",
+    "descripcion": "Bombilla de acero inoxidable 316L con filtro antitaponamiento. Curva ergonómica.",
+    "stock": 25,
+    "destacado": false
+  },
+  {
+    "id": 11,
+    "nombre": "Bombilla Cucharita Artesanal",
+    "categoria": "accesorios",
+    "precio": 1900,
+    "imagen": "img/picodErey.png",
+    "descripcion": "Estilo tradicional con cucharita en la punta. Fundida en alpaca con mango trenzado.",
+    "stock": 18,
+    "destacado": false
+  },
+  {
+    "id": 12,
+    "nombre": "Termo Stanley 1L",
+    "categoria": "accesorios",
+    "precio": 18500,
+    "imagen": "img/stanley.png",
+    "descripcion": "El inseparable del mateador. Mantiene el agua caliente por 24 horas. Original y resistente.",
+    "stock": 10,
+    "destacado": true
+  },
+  {
+    "id": 13,
+    "nombre": "Kit Iniciación Entrerriano",
+    "categoria": "kits",
+    "precio": 12000,
+    "imagen": "img/mategemini.png",
+    "descripcion": "Mate calabaza + bombilla curva + yerba Amanda 500g + guía de cebado. El regalo perfecto.",
+    "stock": 7,
+    "destacado": true
+  },
+  {
+    "id": 14,
+    "nombre": "Kit Premium Mesopotámico",
+    "categoria": "kits",
+    "precio": 28000,
+    "imagen": "img/combopremium.png",
+    "descripcion": "Mate guayubira + bombilla alpaca + yerba orgánica + termo Stanley 1L. Para los más exigentes.",
+    "stock": 4,
+    "destacado": true
+  },
+  {
+    "id": 15,
+    "nombre": "Portamate de Cuero",
+    "categoria": "accesorios",
+    "precio": 5500,
+    "imagen": "img/portamates.png",
+    "descripcion": "Funda de cuero vacuno curtido al vegetal en Nogoyá. Protege tu mate y le da estilo.",
+    "stock": 14,
+    "destacado": false
+  },
+    {
+    "id": 16,
+    "nombre": "Yerba canarias + bombilla",
+    "categoria": "yerbas",
+    "precio": 8500,
+    "imagen": "img/yerbacanarias.png",
+    "descripcion": "yerba canarias con una bombilla incluida de regalo",
+    "stock": 50,
+    "destacado": false
+  }
+]
+

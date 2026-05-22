@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TuMateEntrerriano</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Crimson+Pro:wght@300;400;600&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="header__inner">
+      <div class="header__brand">
+        <div>
+          <h1 class="header__title">TuMateEntrerriano</h1>
+          <p class="header__tagline">
+            Tradición mesopotámica en cada sorbo
+          </p>
+        </div>
+      </div>
+      <nav class="header__nav">
+        <button class="nav-btn" data-filter="todos">Todos</button>
+        <button class="nav-btn" data-filter="mates">Mates</button>
+        <button class="nav-btn" data-filter="yerbas">Yerbas</button>
+        <button class="nav-btn" data-filter="accesorios">Accesorios</button>
+        <button class="nav-btn" data-filter="kits">Kits</button>
+      </nav>
+      <button class="cart-btn" id="cartToggle" aria-label="Ver carrito">
+        <span class="cart-btn__icon">🛒</span>
+        <span class="cart-btn__count" id="cartCount">0</span>
+      </button>
+    </div>
+  </header>
+  <section class="hero">
+    <div class="hero__content">
+      <p class="hero__kicker">
+        Entre Ríos · Argentina
+      </p>
+      <h2 class="hero__headline">
+        El mate como lo<br />
+        <em>siempre soñaste</em>
+      </h2>
+      <p class="hero__sub">
+        Mates artesanales, yerbas del litoral y accesorios de calidad.
+        Directo desde la Mesopotamia a tu patio.
+      </p>
+      <button class="hero__cta" id="heroCta">
+        Explorar productos
+      </button>
+    </div>
+  </section>
+  <section class="shop" id="shop">
+    <div class="shop__controls">
+      <div class="search-wrap">
+        <input
+          class="search-input"
+          type="text"
+          id="searchInput"
+          placeholder="Buscar producto…"
+        />
+        <i data-lucide="search" class="search-icon"></i>
+      </div>
+      <div class="sort-wrap">
+        <label class="sort-label" for="sortSelect">
+          Ordenar:
+        </label>
+        <select class="sort-select" id="sortSelect">
+          <option value="default">Relevancia</option>
+          <option value="precio-asc">
+            Precio: menor a mayor
+          </option>
+          <option value="precio-desc">
+            Precio: mayor a menor
+          </option>
+          <option value="nombre-az">
+            Nombre A–Z
+          </option>
+        </select>
+      </div>
+    </div>
+    <div class="products-grid" id="productsGrid">
+    </div>
+    <div class="empty-state" id="emptyState" hidden>
+      <p>
+        No encontramos productos con esa búsqueda.
+      </p>
+    </div>
+  </section>
+  <aside class="cart-sidebar" id="cartSidebar" aria-hidden="true">
+    <div class="cart-sidebar__header">
+      <h2 class="cart-sidebar__title">
+        Tu carrito 🛒
+      </h2>
+      <button
+        class="cart-close"
+        id="cartClose"
+        aria-label="Cerrar carrito"
+      >
+        ✕
+      </button>
+    </div>
+    <div class="cart-items" id="cartItems">
+    </div>
+    <div class="cart-empty" id="cartEmpty">
+      <span>
+        Suma productos los cuales quieras ver aqui !
+      </span>
+      <p>
+        Todavía no agregaste nada.<br />
+        ¡Explorá nuestros productos!
+      </p>
+    </div>
+    <div class="cart-footer" id="cartFooter" hidden>
+      <div class="cart-footer__subtotal">
+        <span>Subtotal</span>
+        <span id="cartSubtotal">$0</span>
+      </div>
+      <div class="cart-footer__envio">
+        <span>Envío estimado</span>
+        <span id="cartEnvio">$0</span>
+      </div>
+      <div class="cart-footer__total">
+        <span>Total</span>
+        <span id="cartTotal">$0</span>
+      </div>
+      <button class="btn-checkout" id="btnCheckout">
+        Finalizar compra →
+      </button>
+    </div>
+  </aside>
+  <div
+    class="overlay"
+    id="overlay"
+    aria-hidden="true"
+  ></div>
+  <footer class="footer">
+    <div class="footer__inner">
+      <div class="footer__brand">
+        <strong>TuMateEntrerriano</strong>
+      </div>
+      <p class="footer__copy">
+        © 2025 · Hecho con amor en Entre Ríos, Argentina
+      </p>
+      <p class="footer__copy">
+        Artesanos y productores de la Mesopotamia
+      </p>
+    </div>
+  </footer>
+  <script src="app.js"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>
