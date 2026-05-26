@@ -1,6 +1,6 @@
 /* =====================================================
    KaayMatesStore – app.js
-   Firebase Firestore integrado
+   Firebase Firestore + Authentication integrado
    ===================================================== */
 
 /* ── Firebase ─────────────────────────────────────── */
@@ -8,7 +8,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getFirestore,
   collection,
-  getDocs,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -17,6 +16,12 @@ import {
   query,
   orderBy,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBXf1M-UDLec9fkiqPwmu7AB5VgDfFzLQg",
@@ -27,8 +32,9 @@ const firebaseConfig = {
   appId: "1:226341748070:web:48024bcd5ae547ab1f9ca7",
 };
 
-const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+const app  = initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const auth = getAuth(app);
 
 const PRODUCTOS_COL = "productos";
 const PEDIDOS_COL   = "pedidos";
@@ -68,29 +74,64 @@ const PLACEHOLDER_SMALL = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/20
 window._ph  = PLACEHOLDER_IMG;
 window._phs = PLACEHOLDER_SMALL;
 
-const ADMIN_PASSWORD      = 'mate2025';
 const ALIAS_TRANSFERENCIA = 'santiregner.mp';
-const ADMIN_SESSION       = 'tme_admin_session';
 
 /* ── Estado global ─────────────────────────────────── */
-let productos      = [];   // array en memoria, sincronizado con Firestore
-let carrito        = [];
-let filtroActual   = 'todos';
-let adminLoggedIn  = false;
-let editingProductId = null;  // firestoreId del producto que se está editando
+let productos        = [];
+let carrito          = [];
+let filtroActual     = 'todos';
+let adminLoggedIn    = false;
+let editingProductId = null;
 
 /* ── Helpers UI ─────────────────────────────────────── */
 const $ = id => document.getElementById(id);
 const fmt = n => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
 
-/* ── Upload de imagen ───────────────────────────────── */
-function quitarImagen() {
-  $('pImagen').value = '';
-  $('pImagenFile').value = '';
-  $('imagenPreview').src = '';
-  $('imagenPreviewWrap').style.display = 'none';
+/* ── Auth: escuchar estado de sesión ────────────────── */
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    adminLoggedIn = true;
+  } else {
+    adminLoggedIn = false;
+    // Si el panel estaba abierto, cerrarlo
+    if ($('adminPanel') && !$('adminPanel').hidden) cerrarAdmin();
+  }
+});
+
+/* ── Auth: login con Firebase ───────────────────────── */
+async function intentarLogin() {
+  const email = $('adminEmail').value.trim();
+  const pass  = $('adminPassword').value;
+
+  if (!email || !pass) {
+    Swal.fire({ icon: 'warning', title: 'Completá email y contraseña', confirmButtonColor: '#c8a96e' });
+    return;
+  }
+
+  const btnLogin = $('btnLoginSubmit');
+  btnLogin.disabled = true;
+  btnLogin.textContent = 'Ingresando…';
+
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+    cerrarLoginAdmin();
+    abrirAdmin();
+  } catch (err) {
+    console.error(err);
+    Swal.fire({ icon: 'error', title: 'Credenciales incorrectas', text: 'Revisá el email y la contraseña.', confirmButtonColor: '#c8a96e' });
+  } finally {
+    btnLogin.disabled = false;
+    btnLogin.textContent = 'Ingresar';
+  }
 }
 
+async function cerrarSesionAdmin() {
+  await signOut(auth);
+  adminLoggedIn = false;
+  cerrarAdmin();
+}
+
+/* ── Upload de imagen ───────────────────────────────── */
 function configurarUploadImagen() {
   document.addEventListener('change', function (e) {
     if (e.target.id !== 'pImagenFile') return;
@@ -109,42 +150,21 @@ function configurarUploadImagen() {
 /* ── Carga de productos (Firestore, tiempo real) ────── */
 function escucharProductos() {
   const q = query(collection(db, PRODUCTOS_COL), orderBy("nombre"));
-
   onSnapshot(q, (snap) => {
     productos = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
     renderProductos();
-    // Si el panel admin está abierto, actualizarlo también
-    if (!$('adminPanel').hidden) renderAdminTable();
+    if ($('adminPanel') && !$('adminPanel').hidden) renderAdminTable();
   }, (err) => {
     console.error("Error al escuchar productos:", err);
-    // Fallback: intentar cargar el JSON local si Firestore falla
-    cargarProductosJSON();
   });
 }
 
-async function cargarProductosJSON() {
-  try {
-    const resp = await fetch('productos.json');
-    const data = await resp.json();
-    productos = data.map(p => ({ ...p, disponible: p.disponible !== false }));
-    renderProductos();
-  } catch (e) {
-    productos = [];
-    renderProductos();
-  }
-}
-
-/* ─────────────────────────────────────────────────────
-   MIGRACIÓN: sube productos.json a Firestore (una sola vez)
-   Llamar desde la consola del navegador:
-   > await migrarProductosAFirestore()
-   ───────────────────────────────────────────────────── */
+/* ── Migración (usar una sola vez desde consola) ─────── */
 window.migrarProductosAFirestore = async function () {
   const resp = await fetch('productos.json');
   const data = await resp.json();
   let count = 0;
   for (const p of data) {
-    // eslint-disable-next-line no-unused-vars
     const { id, ...sinId } = p;
     await addDoc(collection(db, PRODUCTOS_COL), {
       ...sinId,
@@ -167,7 +187,7 @@ function getProductosFiltrados() {
     return pasaFiltro && pasaBusqueda;
   });
 
-  if (orden === 'precio-asc')  lista.sort((a, b) => a.precio - b.precio);
+  if (orden === 'precio-asc')       lista.sort((a, b) => a.precio - b.precio);
   else if (orden === 'precio-desc') lista.sort((a, b) => b.precio - a.precio);
   else if (orden === 'nombre-az')   lista.sort((a, b) => a.nombre.localeCompare(b.nombre));
   else lista.sort((a, b) => (b.destacado ? 1 : 0) - (a.destacado ? 1 : 0));
@@ -223,11 +243,8 @@ function agregarAlCarrito(firestoreId) {
   const prod = productos.find(p => p.firestoreId === firestoreId);
   if (!prod || prod.disponible === false) return;
   const existente = carrito.find(c => c.firestoreId === firestoreId);
-  if (existente) {
-    existente.cantidad++;
-  } else {
-    carrito.push({ ...prod, cantidad: 1 });
-  }
+  if (existente) existente.cantidad++;
+  else carrito.push({ ...prod, cantidad: 1 });
   renderCarrito();
   renderProductos();
   abrirCarrito();
@@ -263,9 +280,8 @@ function renderCarrito() {
     footer.hidden   = true;
     return;
   }
-  empty.hidden  = false;
-  footer.hidden = false;
   empty.hidden  = true;
+  footer.hidden = false;
 
   items.innerHTML = carrito.map(c => `
     <div class="cart-item">
@@ -404,9 +420,9 @@ function renderCheckoutPaso1() {
       actualizarCostoEnvio();
       document.querySelectorAll('.envio-tipo-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      const datosDiv      = document.querySelector('.checkout-datos');
+      const datosDiv        = document.querySelector('.checkout-datos');
       const existeDireccion = document.getElementById('chkDireccion');
-      const existeNota    = document.querySelector('.sucursal-nota');
+      const existeNota      = document.querySelector('.sucursal-nota');
       if (chkState.tipoEnvio === 'domicilio' && !existeDireccion) {
         if (existeNota) existeNota.remove();
         datosDiv.insertAdjacentHTML('beforeend', `<input type="text" id="chkDireccion" placeholder="Dirección completa *" value="${chkState.direccion}" />`);
@@ -425,8 +441,8 @@ function actualizarCostoEnvio() {
   const prov = document.getElementById('chkProvincia')?.value || chkState.provincia;
   chkState.provincia  = prov;
   chkState.costoEnvio = calcularEnvio(chkState.tipoEnvio, prov);
-  const subtotal = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
-  const total    = subtotal + chkState.costoEnvio;
+  const subtotal   = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
+  const total      = subtotal + chkState.costoEnvio;
   const costoValor = document.getElementById('costoValor');
   const envioFila  = document.getElementById('envioFila');
   const totalFila  = document.getElementById('totalFila');
@@ -525,18 +541,16 @@ function renderPagoDetalle(total, qrUrl) {
         <p>Escaneá este QR desde la app de tu banco:</p>
         <img class="pago-qr pago-qr--grande" src="${qrUrl}" alt="QR pago" onerror="this.style.display='none'" />
         <p class="pago-note">El QR contiene el alias <strong>${ALIAS_TRANSFERENCIA}</strong> y el monto <strong>${fmt(total)}</strong>.</p>
-        <p class="pago-note">También podés buscarlo manualmente en tu banco.</p>
       </div>`;
   }
 }
 
-/* ── Confirmar pedido → Firestore ───────────────────── */
 async function confirmarPedido() {
   const btnConfirmar = document.getElementById('btnConfirmarPedido');
   if (btnConfirmar) { btnConfirmar.disabled = true; btnConfirmar.textContent = 'Guardando…'; }
 
-  const subtotal = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
-  const total    = subtotal + chkState.costoEnvio;
+  const subtotal     = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
+  const total        = subtotal + chkState.costoEnvio;
   const resumenTexto = carrito.map(c => `• ${c.nombre} ×${c.cantidad} = ${fmt(c.precio * c.cantidad)}`).join('\n');
 
   let pedidoId = null;
@@ -550,12 +564,7 @@ async function confirmarPedido() {
       tipoEnvio:  chkState.tipoEnvio,
       costoEnvio: chkState.costoEnvio,
       metodoPago: chkState.metodoPago,
-      items: carrito.map(c => ({
-        firestoreId: c.firestoreId,
-        nombre:      c.nombre,
-        precio:      c.precio,
-        cantidad:    c.cantidad,
-      })),
+      items: carrito.map(c => ({ firestoreId: c.firestoreId, nombre: c.nombre, precio: c.precio, cantidad: c.cantidad })),
       subtotal,
       total,
     });
@@ -577,13 +586,13 @@ async function confirmarPedido() {
         <h4>📲 Realizá tu pago</h4>
         <div class="dato-fila"><span>Alias</span><strong class="alias-code">${ALIAS_TRANSFERENCIA}</strong></div>
         <div class="dato-fila"><span>Monto total</span><strong class="monto-grande">${fmt(total)}</strong></div>
-        <p class="pago-note" style="margin-top:.5rem">Envianos el comprobante por WhatsApp al <strong>${chkState.telefono || 'tu número'}</strong> y coordinamos el envío.</p>
+        <p class="pago-note" style="margin-top:.5rem">Envianos el comprobante por WhatsApp al <strong>${chkState.telefono}</strong> y coordinamos el envío.</p>
       </div>
       <div class="envio-confirmado">
         <h4>📦 Datos de envío</h4>
         <p><strong>Tipo:</strong> ${chkState.tipoEnvio === 'domicilio' ? 'Domicilio (Correo Argentino)' : 'Sucursal (Correo Argentino)'}</p>
         <p><strong>Provincia:</strong> ${chkState.provincia} · CP: ${chkState.cp}</p>
-        ${chkState.tipoEnvio === 'domicilio' ? `<p><strong>Dirección:</strong> ${chkState.direccion}</p>` : '<p>Retirás en la sucursal más cercana a tu código postal.</p>'}
+        ${chkState.tipoEnvio === 'domicilio' ? `<p><strong>Dirección:</strong> ${chkState.direccion}</p>` : '<p>Retirás en la sucursal más cercana a tu CP.</p>'}
         <p><strong>Costo de envío:</strong> ${fmt(chkState.costoEnvio)}</p>
       </div>
       <div class="checkout-resumen-final">
@@ -594,7 +603,6 @@ async function confirmarPedido() {
     </div>
   `;
   lucide.createIcons();
-
   carrito = [];
   renderCarrito();
   renderProductos();
@@ -623,25 +631,14 @@ function cerrarCheckout() {
 function abrirLoginAdmin() {
   $('adminLogin').hidden = false;
   $('overlay').classList.add('active');
+  $('adminEmail').value    = '';
   $('adminPassword').value = '';
-  setTimeout(() => $('adminPassword').focus(), 100);
+  setTimeout(() => $('adminEmail').focus(), 100);
 }
 
 function cerrarLoginAdmin() {
   $('adminLogin').hidden = true;
   $('overlay').classList.remove('active');
-}
-
-function intentarLogin() {
-  const pass = $('adminPassword').value;
-  if (pass === ADMIN_PASSWORD) {
-    adminLoggedIn = true;
-    sessionStorage.setItem(ADMIN_SESSION, '1');
-    cerrarLoginAdmin();
-    abrirAdmin();
-  } else {
-    Swal.fire({ icon: 'error', title: 'Contraseña incorrecta', confirmButtonColor: '#c8a96e' });
-  }
 }
 
 /* ── Admin: panel ───────────────────────────────────── */
@@ -694,12 +691,9 @@ function renderAdminTable() {
 async function toggleDisponibilidad(firestoreId) {
   const p = productos.find(x => x.firestoreId === firestoreId);
   if (!p) return;
-  const nuevoValor = p.disponible === false ? true : false;
   try {
-    await fb_actualizarProducto(firestoreId, { disponible: nuevoValor });
-    // onSnapshot actualizará el array automáticamente
+    await fb_actualizarProducto(firestoreId, { disponible: p.disponible === false ? true : false });
   } catch (err) {
-    console.error('Error actualizando disponibilidad:', err);
     Swal.fire({ icon: 'error', title: 'Error al actualizar', confirmButtonColor: '#c8a96e' });
   }
 }
@@ -718,9 +712,7 @@ function eliminarProducto(firestoreId) {
     if (res.isConfirmed) {
       try {
         await fb_eliminarProducto(firestoreId);
-        // onSnapshot actualiza la lista automáticamente
       } catch (err) {
-        console.error('Error eliminando producto:', err);
         Swal.fire({ icon: 'error', title: 'Error al eliminar', confirmButtonColor: '#c8a96e' });
       }
     }
@@ -748,7 +740,7 @@ function abrirModalProducto(firestoreId = null) {
       } else {
         document.getElementById('imagenPreviewWrap').style.display = 'none';
       }
-      $('pDestacado').checked = !!p.destacado;
+      $('pDestacado').checked  = !!p.destacado;
       $('pDisponible').checked = p.disponible !== false;
     }
   } else {
@@ -805,7 +797,6 @@ async function guardarProducto() {
   }
 }
 
-/* ── Export JSON (desde memoria) ─────────────────────── */
 function exportarJSON() {
   const blob = new Blob([JSON.stringify(productos, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
@@ -815,21 +806,12 @@ function exportarJSON() {
 }
 
 /* ── Event Listeners ────────────────────────────────── */
-document.addEventListener('DOMContentLoaded', async () => {
-
-  // Restaurar sesión admin
-  if (sessionStorage.getItem(ADMIN_SESSION)) adminLoggedIn = true;
-
-  // Upload imagen (delegado)
+document.addEventListener('DOMContentLoaded', () => {
   configurarUploadImagen();
-
-  // Iniciar escucha de productos en Firestore (tiempo real)
   escucharProductos();
 
-  // Hero CTA
   $('heroCta').addEventListener('click', () => $('shop').scrollIntoView({ behavior: 'smooth' }));
 
-  // Filtros nav
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -839,19 +821,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // Búsqueda y ordenamiento
   $('searchInput').addEventListener('input', renderProductos);
   $('sortSelect').addEventListener('change', renderProductos);
 
-  // Carrito
   $('cartToggle').addEventListener('click', abrirCarrito);
   $('cartClose').addEventListener('click', cerrarCarrito);
   $('btnCheckout').addEventListener('click', abrirCheckout);
-
-  // Checkout
   $('checkoutClose').addEventListener('click', cerrarCheckout);
 
-  // Overlay
   $('overlay').addEventListener('click', () => {
     cerrarCarrito();
     cerrarAdmin();
@@ -860,17 +837,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     cerrarModalProducto();
   });
 
-  // Admin
   $('adminToggle').addEventListener('click', () => {
     if (adminLoggedIn) abrirAdmin();
     else abrirLoginAdmin();
   });
 
+  // Login con Firebase Auth
   $('btnLoginSubmit').addEventListener('click', intentarLogin);
   $('btnLoginCancel').addEventListener('click', cerrarLoginAdmin);
   $('adminPassword').addEventListener('keydown', e => { if (e.key === 'Enter') intentarLogin(); });
 
   $('adminClose').addEventListener('click', cerrarAdmin);
+  $('btnAdminLogout').addEventListener('click', cerrarSesionAdmin);
   $('btnAddProduct').addEventListener('click', () => abrirModalProducto());
   $('btnExportJSON').addEventListener('click', exportarJSON);
 

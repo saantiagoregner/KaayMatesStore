@@ -112,7 +112,12 @@
 <div class="admin-panel" id="adminPanel" hidden>
   <div class="admin-panel__header">
     <h2>🛠 Panel Administrador</h2>
-    <button class="admin-close" id="adminClose">✕</button>
+    <div style="display:flex;gap:.5rem;align-items:center">
+      <button class="btn-admin-logout" id="btnAdminLogout" title="Cerrar sesión">
+        <i data-lucide="log-out"></i> Salir
+      </button>
+      <button class="admin-close" id="adminClose">✕</button>
+    </div>
   </div>
   <div class="admin-panel__body">
     <div class="admin-actions">
@@ -121,9 +126,6 @@
       </button>
       <button class="btn-admin-export" id="btnExportJSON">
         <i data-lucide="download"></i> Exportar JSON
-      </button>
-      <button class="btn-admin-postventa" onclick="window.location.href='admin-ventas.html'">
-        <i data-lucide="clipboard-list"></i> Panel Postventa
       </button>
     </div>
     <div class="admin-table-wrap">
@@ -176,18 +178,8 @@
         <textarea id="pDescripcion" rows="3" placeholder="Descripción del producto…"></textarea>
       </div>
       <div class="form-row">
-        <label>Imagen del producto</label>
-        <div class="imagen-upload-wrap">
-          <input type="file" id="pImagenFile" accept="image/*" style="display:none" />
-          <button type="button" class="btn-foto" onclick="document.getElementById('pImagenFile').click()">
-            <i data-lucide="camera"></i> Sacar foto / Elegir imagen
-          </button>
-          <div class="imagen-preview-wrap" id="imagenPreviewWrap" style="display:none">
-            <img id="imagenPreview" src="" alt="Preview" />
-            <button type="button" class="btn-quitar-foto" onclick="quitarImagen()">✕ Quitar</button>
-          </div>
-        </div>
-        <input type="hidden" id="pImagen" />
+        <label>URL de imagen</label>
+        <input type="text" id="pImagen" placeholder="img/mifoto.jpg o https://..." />
       </div>
       <div class="form-row form-row--check">
         <label><input type="checkbox" id="pDestacado" /> Producto destacado</label>
@@ -201,16 +193,16 @@
   </div>
 </div>
 
-<!-- LOGIN ADMIN -->
+<!-- LOGIN ADMIN (Firebase Auth) -->
 <div class="admin-login" id="adminLogin" hidden>
   <div class="admin-login__box">
     <h3>🔐 Acceso Administrador</h3>
+    <input type="email" id="adminEmail" placeholder="Email" />
     <input type="password" id="adminPassword" placeholder="Contraseña" />
     <div class="admin-login__actions">
       <button id="btnLoginCancel">Cancelar</button>
       <button id="btnLoginSubmit" class="btn-save">Ingresar</button>
     </div>
-    <p class="admin-login__hint">(contraseña por defecto: <strong>mate2025</strong>)</p>
   </div>
 </div>
 
