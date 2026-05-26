@@ -116,13 +116,16 @@
     <button class="admin-close" id="adminClose">✕</button>
   </div>
   <div class="admin-panel__body">
-    <div class="admin-actions">
-      <button class="btn-admin-add" id="btnAddProduct">
-        <i data-lucide="plus-circle"></i> Nuevo producto
-      </button>
-      <button class="btn-admin-export" id="btnExportJSON">
-        <i data-lucide="download"></i> Exportar JSON
-      </button>
+<div class="admin-actions">
+  <button class="btn-admin-add" id="btnAddProduct">
+    <i data-lucide="plus-circle"></i> Nuevo producto
+    </button>
+    <button class="btn-admin-export" id="btnExportJSON">
+    <i data-lucide="download"></i> Exportar JSON
+    </button>
+    <button class="btn-admin-postventa" onclick="window.location.href='admin-venta.html'">
+    <i data-lucide="clipboard-list"></i> Panel Postventa
+    </button>
     </div>
     <div class="admin-table-wrap">
       <table class="admin-table" id="adminTable">
