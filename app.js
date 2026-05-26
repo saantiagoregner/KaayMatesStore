@@ -14,6 +14,7 @@ const ADMIN_PASSWORD = 'mate2025';
 const ALIAS_TRANSFERENCIA = 'santiregner.mp';
 const STORAGE_KEY = 'tme_productos';
 const ADMIN_SESSION = 'tme_admin_session';
+const PEDIDOS_KEY = 'tme_pedidos';
 
 /* ── Estado global ─────────────────────────────────── */
 let productos = [];
@@ -29,6 +30,8 @@ const fmt = n => new Intl.NumberFormat('es-AR', { style: 'currency', currency: '
 function genId() {
   return Date.now() + Math.floor(Math.random() * 1000);
 }
+
+/* ── Upload de imagen (delegado, sin buscar el elemento al inicio) ── */
 function quitarImagen() {
   document.getElementById('pImagen').value = '';
   document.getElementById('pImagenFile').value = '';
@@ -37,13 +40,14 @@ function quitarImagen() {
 }
 
 function configurarUploadImagen() {
-  document.getElementById('pImagenFile').addEventListener('change', function() {
-    const file = this.files[0];
+  document.addEventListener('change', function(e) {
+    if (e.target.id !== 'pImagenFile') return;
+    const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
-      document.getElementById('pImagen').value = e.target.result;
-      document.getElementById('imagenPreview').src = e.target.result;
+    reader.onload = function(ev) {
+      document.getElementById('pImagen').value = ev.target.result;
+      document.getElementById('imagenPreview').src = ev.target.result;
       document.getElementById('imagenPreviewWrap').style.display = 'flex';
     };
     reader.readAsDataURL(file);
@@ -232,7 +236,6 @@ function cerrarCarrito() {
      3. Confirmación
    ───────────────────────────────────────────────────────── */
 
-// Tarifas Correo Argentino (referencia, ajustable)
 const TARIFAS_ENVIO = {
   domicilio: {
     'Buenos Aires':    2800,
@@ -267,7 +270,6 @@ TARIFAS_ENVIO.sucursal = Object.fromEntries(
 
 const PROVINCIAS = Object.keys(TARIFAS_ENVIO.domicilio).sort();
 
-// Estado checkout
 let chkState = {
   paso: 1,
   tipoEnvio: 'domicilio',
@@ -363,14 +365,12 @@ function renderCheckoutPaso1() {
   `;
   lucide.createIcons();
 
-  // Listeners de tipo envío
   document.querySelectorAll('.envio-tipo-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       chkState.tipoEnvio = btn.dataset.tipo;
       actualizarCostoEnvio();
       document.querySelectorAll('.envio-tipo-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      // Mostrar/ocultar campo dirección
       const datosDiv = document.querySelector('.checkout-datos');
       const existeDireccion = document.getElementById('chkDireccion');
       const existeNota = document.querySelector('.sucursal-nota');
@@ -427,8 +427,6 @@ function renderCheckoutPaso2() {
   const subtotal = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
   const total = subtotal + chkState.costoEnvio;
 
-  // QR de transferencia: genera un QR con los datos del pago
-  // Usamos la API de QR gratuita de goqr.me (solo genera imagen, sin datos bancarios reales)
   const qrData = encodeURIComponent(`Transferencia TuMateEntrerriano\nAlias: ${ALIAS_TRANSFERENCIA}\nMonto: ${total}\nCliente: ${chkState.nombre}`);
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${qrData}&color=c8a96e&bgcolor=1a1814`;
 
@@ -523,6 +521,34 @@ function confirmarPedido() {
   const subtotal = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
   const total = subtotal + chkState.costoEnvio;
   const resumenTexto = carrito.map(c => `• ${c.nombre} ×${c.cantidad} = ${fmt(c.precio * c.cantidad)}`).join('\n');
+
+  // ── Guardar pedido en localStorage ──
+  const pedidosGuardados = JSON.parse(localStorage.getItem(PEDIDOS_KEY) || '[]');
+  const nuevoPedido = {
+    id:         Date.now(),
+    fecha:      Date.now(),
+    estado:     'pendiente',
+    nombre:     chkState.nombre,
+    telefono:   chkState.telefono,
+    provincia:  chkState.provincia,
+    cp:         chkState.cp,
+    direccion:  chkState.direccion,
+    tipoEnvio:  chkState.tipoEnvio,
+    costoEnvio: chkState.costoEnvio,
+    metodoPago: chkState.metodoPago,
+    items:      carrito.map(c => ({
+      id:       c.id,
+      nombre:   c.nombre,
+      precio:   c.precio,
+      cantidad: c.cantidad
+    })),
+    subtotal,
+    total,
+    nota: ''
+  };
+  pedidosGuardados.push(nuevoPedido);
+  localStorage.setItem(PEDIDOS_KEY, JSON.stringify(pedidosGuardados));
+  // ── Fin guardado ──
 
   $('checkoutInner').innerHTML = `
     ${renderSteps(3)}
@@ -704,7 +730,7 @@ function abrirModalProducto(id = null) {
         document.getElementById('imagenPreview').src = p.imagen;
         document.getElementById('imagenPreviewWrap').style.display = 'flex';
       } else {
-      document.getElementById('imagenPreviewWrap').style.display = 'none';
+        document.getElementById('imagenPreviewWrap').style.display = 'none';
       }
       $('pDestacado').checked = !!p.destacado;
       $('pDisponible').checked = p.disponible !== false;
@@ -719,7 +745,6 @@ function abrirModalProducto(id = null) {
 function cerrarModalProducto() {
   $('productModal').hidden = true;
   editingProductId = null;
-  // Si el panel admin sigue abierto, mantener overlay activo
   if (!$('adminPanel').hidden) return;
   $('overlay').classList.remove('active');
 }
@@ -773,6 +798,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Restaurar sesión admin
   if (sessionStorage.getItem(ADMIN_SESSION)) adminLoggedIn = true;
 
+  // Upload imagen (delegado)
+  configurarUploadImagen();
+
   // Hero CTA
   $('heroCta').addEventListener('click', () => {
     $('shop').scrollIntoView({ behavior: 'smooth' });
@@ -786,7 +814,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       filtroActual = btn.dataset.filter;
       renderProductos();
     });
-    configurarUploadImagen();
   });
 
   // Búsqueda y ordenamiento
