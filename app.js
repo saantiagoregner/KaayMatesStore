@@ -1,102 +1,182 @@
 /* =====================================================
-   TuMateEntrerriano – app.js
-   Incluye: tienda, carrito, checkout por transferencia,
-            panel administrador con CRUD de productos
+   KaayMatesStore – app.js
+   Firebase Firestore integrado
    ===================================================== */
 
-/* ── Placeholders SVG inline (sin dependencias externas) ── */
-const PLACEHOLDER_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%231a1814'/%3E%3Ctext x='50%25' y='45%25' font-family='serif' font-size='48' text-anchor='middle' fill='%23c8a96e'%3E%F0%9F%A7%89%3C/text%3E%3Ctext x='50%25' y='68%25' font-family='serif' font-size='14' text-anchor='middle' fill='%237a6540'%3Esin imagen%3C/text%3E%3C/svg%3E";
+/* ── Firebase ─────────────────────────────────────── */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  query,
+  orderBy,
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBXf1M-UDLec9fkiqPwmu7AB5VgDfFzLQg",
+  authDomain: "kaaymatesstore.firebaseapp.com",
+  projectId: "kaaymatesstore",
+  storageBucket: "kaaymatesstore.firebasestorage.app",
+  messagingSenderId: "226341748070",
+  appId: "1:226341748070:web:48024bcd5ae547ab1f9ca7",
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+const PRODUCTOS_COL = "productos";
+const PEDIDOS_COL   = "pedidos";
+
+/* ── Helpers Firebase ──────────────────────────────── */
+async function fb_agregarProducto(data) {
+  const ref = await addDoc(collection(db, PRODUCTOS_COL), {
+    ...data,
+    creadoEn: new Date().toISOString(),
+  });
+  return ref.id;
+}
+
+async function fb_actualizarProducto(firestoreId, data) {
+  await updateDoc(doc(db, PRODUCTOS_COL, firestoreId), {
+    ...data,
+    actualizadoEn: new Date().toISOString(),
+  });
+}
+
+async function fb_eliminarProducto(firestoreId) {
+  await deleteDoc(doc(db, PRODUCTOS_COL, firestoreId));
+}
+
+async function fb_guardarPedido(pedido) {
+  const ref = await addDoc(collection(db, PEDIDOS_COL), {
+    ...pedido,
+    estado: "pendiente",
+    creadoEn: new Date().toISOString(),
+  });
+  return ref.id;
+}
+
+/* ── Placeholders SVG ──────────────────────────────── */
+const PLACEHOLDER_IMG   = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%231a1814'/%3E%3Ctext x='50%25' y='45%25' font-family='serif' font-size='48' text-anchor='middle' fill='%23c8a96e'%3E%F0%9F%A7%89%3C/text%3E%3Ctext x='50%25' y='68%25' font-family='serif' font-size='14' text-anchor='middle' fill='%237a6540'%3Esin imagen%3C/text%3E%3C/svg%3E";
 const PLACEHOLDER_SMALL = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Crect width='60' height='60' fill='%231a1814'/%3E%3Ctext x='50%25' y='62%25' font-family='serif' font-size='28' text-anchor='middle' fill='%23c8a96e'%3E%F0%9F%A7%89%3C/text%3E%3C/svg%3E";
-window._ph = PLACEHOLDER_IMG;
+window._ph  = PLACEHOLDER_IMG;
 window._phs = PLACEHOLDER_SMALL;
 
-const ADMIN_PASSWORD = 'mate2025';
+const ADMIN_PASSWORD      = 'mate2025';
 const ALIAS_TRANSFERENCIA = 'santiregner.mp';
-const STORAGE_KEY = 'tme_productos';
-const ADMIN_SESSION = 'tme_admin_session';
-const PEDIDOS_KEY = 'tme_pedidos';
+const ADMIN_SESSION       = 'tme_admin_session';
 
 /* ── Estado global ─────────────────────────────────── */
-let productos = [];
-let carrito = [];
-let filtroActual = 'todos';
-let adminLoggedIn = false;
-let editingProductId = null;
+let productos      = [];   // array en memoria, sincronizado con Firestore
+let carrito        = [];
+let filtroActual   = 'todos';
+let adminLoggedIn  = false;
+let editingProductId = null;  // firestoreId del producto que se está editando
 
-/* ── Helpers ────────────────────────────────────────── */
+/* ── Helpers UI ─────────────────────────────────────── */
 const $ = id => document.getElementById(id);
 const fmt = n => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
 
-function genId() {
-  return Date.now() + Math.floor(Math.random() * 1000);
-}
-
-/* ── Upload de imagen (delegado, sin buscar el elemento al inicio) ── */
+/* ── Upload de imagen ───────────────────────────────── */
 function quitarImagen() {
-  document.getElementById('pImagen').value = '';
-  document.getElementById('pImagenFile').value = '';
-  document.getElementById('imagenPreview').src = '';
-  document.getElementById('imagenPreviewWrap').style.display = 'none';
+  $('pImagen').value = '';
+  $('pImagenFile').value = '';
+  $('imagenPreview').src = '';
+  $('imagenPreviewWrap').style.display = 'none';
 }
 
 function configurarUploadImagen() {
-  document.addEventListener('change', function(e) {
+  document.addEventListener('change', function (e) {
     if (e.target.id !== 'pImagenFile') return;
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(ev) {
-      document.getElementById('pImagen').value = ev.target.result;
-      document.getElementById('imagenPreview').src = ev.target.result;
-      document.getElementById('imagenPreviewWrap').style.display = 'flex';
+    reader.onload = function (ev) {
+      $('pImagen').value = ev.target.result;
+      $('imagenPreview').src = ev.target.result;
+      $('imagenPreviewWrap').style.display = 'flex';
     };
     reader.readAsDataURL(file);
   });
 }
 
-/* ── Carga de productos ─────────────────────────────── */
-async function cargarProductos() {
-  const guardados = localStorage.getItem(STORAGE_KEY);
-  if (guardados) {
-    productos = JSON.parse(guardados);
-  } else {
-    try {
-      const resp = await fetch('productos.json');
-      productos = await resp.json();
-      productos = productos.map(p => ({ ...p, disponible: p.disponible !== false }));
-      guardarProductos();
-    } catch (e) {
-      productos = [];
-    }
-  }
-  renderProductos();
+/* ── Carga de productos (Firestore, tiempo real) ────── */
+function escucharProductos() {
+  const q = query(collection(db, PRODUCTOS_COL), orderBy("nombre"));
+
+  onSnapshot(q, (snap) => {
+    productos = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+    renderProductos();
+    // Si el panel admin está abierto, actualizarlo también
+    if (!$('adminPanel').hidden) renderAdminTable();
+  }, (err) => {
+    console.error("Error al escuchar productos:", err);
+    // Fallback: intentar cargar el JSON local si Firestore falla
+    cargarProductosJSON();
+  });
 }
 
-function guardarProductos() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(productos));
+async function cargarProductosJSON() {
+  try {
+    const resp = await fetch('productos.json');
+    const data = await resp.json();
+    productos = data.map(p => ({ ...p, disponible: p.disponible !== false }));
+    renderProductos();
+  } catch (e) {
+    productos = [];
+    renderProductos();
+  }
 }
+
+/* ─────────────────────────────────────────────────────
+   MIGRACIÓN: sube productos.json a Firestore (una sola vez)
+   Llamar desde la consola del navegador:
+   > await migrarProductosAFirestore()
+   ───────────────────────────────────────────────────── */
+window.migrarProductosAFirestore = async function () {
+  const resp = await fetch('productos.json');
+  const data = await resp.json();
+  let count = 0;
+  for (const p of data) {
+    // eslint-disable-next-line no-unused-vars
+    const { id, ...sinId } = p;
+    await addDoc(collection(db, PRODUCTOS_COL), {
+      ...sinId,
+      disponible: sinId.disponible !== false,
+      creadoEn: new Date().toISOString(),
+    });
+    count++;
+  }
+  console.log(`✅ Migración completa: ${count} productos subidos a Firestore.`);
+};
 
 /* ── Render tienda ──────────────────────────────────── */
 function getProductosFiltrados() {
-  const q = $('searchInput').value.trim().toLowerCase();
+  const q     = $('searchInput').value.trim().toLowerCase();
   const orden = $('sortSelect').value;
 
   let lista = productos.filter(p => {
-    const pasaFiltro = filtroActual === 'todos' || p.categoria === filtroActual;
+    const pasaFiltro   = filtroActual === 'todos' || p.categoria === filtroActual;
     const pasaBusqueda = !q || p.nombre.toLowerCase().includes(q) || (p.descripcion || '').toLowerCase().includes(q);
     return pasaFiltro && pasaBusqueda;
   });
 
-  if (orden === 'precio-asc') lista.sort((a, b) => a.precio - b.precio);
+  if (orden === 'precio-asc')  lista.sort((a, b) => a.precio - b.precio);
   else if (orden === 'precio-desc') lista.sort((a, b) => b.precio - a.precio);
-  else if (orden === 'nombre-az') lista.sort((a, b) => a.nombre.localeCompare(b.nombre));
+  else if (orden === 'nombre-az')   lista.sort((a, b) => a.nombre.localeCompare(b.nombre));
   else lista.sort((a, b) => (b.destacado ? 1 : 0) - (a.destacado ? 1 : 0));
 
   return lista;
 }
 
 function renderProductos() {
-  const grid = $('productsGrid');
+  const grid  = $('productsGrid');
   const empty = $('emptyState');
   const lista = getProductosFiltrados();
 
@@ -108,10 +188,10 @@ function renderProductos() {
   empty.hidden = true;
 
   grid.innerHTML = lista.map(p => {
-    const noDisp = p.disponible === false;
-    const enCarrito = carrito.find(c => c.id === p.id);
+    const noDisp    = p.disponible === false;
+    const enCarrito = carrito.find(c => c.firestoreId === p.firestoreId);
     return `
-    <article class="product-card ${noDisp ? 'product-card--agotado' : ''}" data-id="${p.id}">
+    <article class="product-card ${noDisp ? 'product-card--agotado' : ''}" data-id="${p.firestoreId}">
       ${p.destacado ? '<span class="product-card__badge">Destacado</span>' : ''}
       ${noDisp ? '<span class="product-card__badge product-card__badge--agotado">Sin stock</span>' : ''}
       <div class="product-card__img-wrap">
@@ -123,7 +203,7 @@ function renderProductos() {
         <p class="product-card__desc">${p.descripcion || ''}</p>
         <div class="product-card__footer">
           <span class="product-card__price">${fmt(p.precio)}</span>
-          <button class="btn-add ${noDisp ? 'btn-add--disabled' : ''}" data-id="${p.id}" ${noDisp ? 'disabled' : ''}>
+          <button class="btn-add ${noDisp ? 'btn-add--disabled' : ''}" data-id="${p.firestoreId}" ${noDisp ? 'disabled' : ''}>
             ${enCarrito ? '<i data-lucide="check"></i> Agregado' : '<i data-lucide="plus"></i> Agregar'}
           </button>
         </div>
@@ -134,15 +214,15 @@ function renderProductos() {
   lucide.createIcons();
 
   grid.querySelectorAll('.btn-add:not(.btn-add--disabled)').forEach(btn => {
-    btn.addEventListener('click', () => agregarAlCarrito(parseInt(btn.dataset.id)));
+    btn.addEventListener('click', () => agregarAlCarrito(btn.dataset.id));
   });
 }
 
 /* ── Carrito ────────────────────────────────────────── */
-function agregarAlCarrito(id) {
-  const prod = productos.find(p => p.id === id);
+function agregarAlCarrito(firestoreId) {
+  const prod = productos.find(p => p.firestoreId === firestoreId);
   if (!prod || prod.disponible === false) return;
-  const existente = carrito.find(c => c.id === id);
+  const existente = carrito.find(c => c.firestoreId === firestoreId);
   if (existente) {
     existente.cantidad++;
   } else {
@@ -153,38 +233,39 @@ function agregarAlCarrito(id) {
   abrirCarrito();
 }
 
-function quitarDelCarrito(id) {
-  carrito = carrito.filter(c => c.id !== id);
+function quitarDelCarrito(firestoreId) {
+  carrito = carrito.filter(c => c.firestoreId !== firestoreId);
   renderCarrito();
   renderProductos();
 }
 
-function cambiarCantidad(id, delta) {
-  const item = carrito.find(c => c.id === id);
+function cambiarCantidad(firestoreId, delta) {
+  const item = carrito.find(c => c.firestoreId === firestoreId);
   if (!item) return;
   item.cantidad += delta;
-  if (item.cantidad <= 0) quitarDelCarrito(id);
+  if (item.cantidad <= 0) quitarDelCarrito(firestoreId);
   else renderCarrito();
 }
 
 function renderCarrito() {
-  const items = $('cartItems');
-  const empty = $('cartEmpty');
+  const items  = $('cartItems');
+  const empty  = $('cartEmpty');
   const footer = $('cartFooter');
-  const count = $('cartCount');
+  const count  = $('cartCount');
 
-  const total = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
+  const total      = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
   const totalItems = carrito.reduce((s, c) => s + c.cantidad, 0);
   count.textContent = totalItems;
 
   if (!carrito.length) {
     items.innerHTML = '';
-    empty.hidden = false;
-    footer.hidden = true;
+    empty.hidden    = false;
+    footer.hidden   = true;
     return;
   }
-  empty.hidden = true;
+  empty.hidden  = false;
   footer.hidden = false;
+  empty.hidden  = true;
 
   items.innerHTML = carrito.map(c => `
     <div class="cart-item">
@@ -194,27 +275,27 @@ function renderCarrito() {
         <span class="cart-item__price">${fmt(c.precio)}</span>
       </div>
       <div class="cart-item__qty">
-        <button class="qty-btn" data-id="${c.id}" data-delta="-1">−</button>
+        <button class="qty-btn" data-id="${c.firestoreId}" data-delta="-1">−</button>
         <span>${c.cantidad}</span>
-        <button class="qty-btn" data-id="${c.id}" data-delta="1">+</button>
+        <button class="qty-btn" data-id="${c.firestoreId}" data-delta="1">+</button>
       </div>
-      <button class="cart-item__remove" data-id="${c.id}"><i data-lucide="trash-2"></i></button>
+      <button class="cart-item__remove" data-id="${c.firestoreId}"><i data-lucide="trash-2"></i></button>
     </div>
   `).join('');
 
   lucide.createIcons();
 
   items.querySelectorAll('.qty-btn').forEach(btn => {
-    btn.addEventListener('click', () => cambiarCantidad(parseInt(btn.dataset.id), parseInt(btn.dataset.delta)));
+    btn.addEventListener('click', () => cambiarCantidad(btn.dataset.id, parseInt(btn.dataset.delta)));
   });
   items.querySelectorAll('.cart-item__remove').forEach(btn => {
-    btn.addEventListener('click', () => quitarDelCarrito(parseInt(btn.dataset.id)));
+    btn.addEventListener('click', () => quitarDelCarrito(btn.dataset.id));
   });
 
   const envio = total > 10000 ? 0 : 1200;
   $('cartSubtotal').textContent = fmt(total);
-  $('cartEnvio').textContent = envio === 0 ? 'Gratis 🎉' : fmt(envio);
-  $('cartTotal').textContent = fmt(total + envio);
+  $('cartEnvio').textContent    = envio === 0 ? 'Gratis 🎉' : fmt(envio);
+  $('cartTotal').textContent    = fmt(total + envio);
 }
 
 function abrirCarrito() {
@@ -229,58 +310,23 @@ function cerrarCarrito() {
   $('overlay').classList.remove('active');
 }
 
-/* ── Checkout ────────────────────────────────────────────
-   Flujo de 3 pasos:
-     1. Envío  → tipo (domicilio / sucursal) + datos personales
-     2. Pago   → transferencia + QR dinámico
-     3. Confirmación
-   ───────────────────────────────────────────────────────── */
-
+/* ── Checkout ───────────────────────────────────────── */
 const TARIFAS_ENVIO = {
   domicilio: {
-    'Buenos Aires':    2800,
-    'CABA':            2800,
-    'Entre Ríos':      2200,
-    'Santa Fe':        2500,
-    'Córdoba':         2500,
-    'Corrientes':      2600,
-    'Misiones':        2900,
-    'Chaco':           2900,
-    'Formosa':         3100,
-    'Santiago del Estero': 3000,
-    'Tucumán':         3000,
-    'Salta':           3200,
-    'Jujuy':           3400,
-    'Catamarca':       3200,
-    'La Rioja':        3200,
-    'San Juan':        3300,
-    'Mendoza':         3300,
-    'San Luis':        3100,
-    'La Pampa':        3200,
-    'Neuquén':         3500,
-    'Río Negro':       3600,
-    'Chubut':          3900,
-    'Santa Cruz':      4200,
-    'Tierra del Fuego':4800,
+    'Buenos Aires': 2800, 'CABA': 2800, 'Entre Ríos': 2200, 'Santa Fe': 2500,
+    'Córdoba': 2500, 'Corrientes': 2600, 'Misiones': 2900, 'Chaco': 2900,
+    'Formosa': 3100, 'Santiago del Estero': 3000, 'Tucumán': 3000, 'Salta': 3200,
+    'Jujuy': 3400, 'Catamarca': 3200, 'La Rioja': 3200, 'San Juan': 3300,
+    'Mendoza': 3300, 'San Luis': 3100, 'La Pampa': 3200, 'Neuquén': 3500,
+    'Río Negro': 3600, 'Chubut': 3900, 'Santa Cruz': 4200, 'Tierra del Fuego': 4800,
   }
 };
 TARIFAS_ENVIO.sucursal = Object.fromEntries(
-  Object.entries(TARIFAS_ENVIO.domicilio).map(([k,v]) => [k, Math.round(v * 0.75)])
+  Object.entries(TARIFAS_ENVIO.domicilio).map(([k, v]) => [k, Math.round(v * 0.75)])
 );
-
 const PROVINCIAS = Object.keys(TARIFAS_ENVIO.domicilio).sort();
 
-let chkState = {
-  paso: 1,
-  tipoEnvio: 'domicilio',
-  provincia: '',
-  costoEnvio: 0,
-  nombre: '',
-  telefono: '',
-  direccion: '',
-  cp: '',
-  metodoPago: 'transferencia'
-};
+let chkState = {};
 
 function calcularEnvio(tipo, provincia) {
   const tabla = TARIFAS_ENVIO[tipo] || TARIFAS_ENVIO.domicilio;
@@ -297,60 +343,48 @@ function abrirCheckout() {
   renderCheckoutPaso1();
 }
 
-/* ─── PASO 1: Envío ─── */
 function renderCheckoutPaso1() {
   const subtotal = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
-  const resumen = carrito.map(c =>
+  const resumen  = carrito.map(c =>
     `<tr><td>${c.nombre} <span class="qty-tag">×${c.cantidad}</span></td><td>${fmt(c.precio * c.cantidad)}</td></tr>`
   ).join('');
-
   const provinciasOpts = PROVINCIAS.map(p =>
     `<option value="${p}" ${p === chkState.provincia ? 'selected' : ''}>${p}</option>`
   ).join('');
-
   chkState.costoEnvio = calcularEnvio(chkState.tipoEnvio, chkState.provincia);
   const total = subtotal + chkState.costoEnvio;
 
   $('checkoutInner').innerHTML = `
     ${renderSteps(1)}
     <h3 class="checkout-title">📦 Elegí tu envío</h3>
-
     <div class="envio-tipo">
       <button class="envio-tipo-btn ${chkState.tipoEnvio === 'domicilio' ? 'active' : ''}" data-tipo="domicilio">
         <span class="envio-icono">🏠</span>
-        <div>
-          <strong>Envío a domicilio</strong>
-          <small>Correo Argentino · 3-7 días hábiles</small>
-        </div>
+        <div><strong>Envío a domicilio</strong><small>Correo Argentino · 3-7 días hábiles</small></div>
       </button>
       <button class="envio-tipo-btn ${chkState.tipoEnvio === 'sucursal' ? 'active' : ''}" data-tipo="sucursal">
         <span class="envio-icono">🏪</span>
-        <div>
-          <strong>Retiro en sucursal</strong>
-          <small>Correo Argentino · 2-5 días hábiles · 25% menos</small>
-        </div>
+        <div><strong>Retiro en sucursal</strong><small>Correo Argentino · 2-5 días hábiles · 25% menos</small></div>
       </button>
     </div>
-
     <div class="envio-ubicacion">
       <label class="chk-label">Provincia *</label>
       <select id="chkProvincia">${provinciasOpts}</select>
       <label class="chk-label" style="margin-top:.8rem">Código postal *</label>
       <input type="text" id="chkCP" placeholder="Ej: 3100" value="${chkState.cp}" maxlength="8" />
     </div>
-
     <div class="costo-envio-preview" id="costoEnvioPreview">
       <span>Costo de envío estimado</span>
       <span class="costo-valor" id="costoValor">${fmt(chkState.costoEnvio)}</span>
     </div>
-
     <h3 class="checkout-title" style="margin-top:1.5rem">👤 Tus datos</h3>
     <div class="checkout-datos">
       <input type="text" id="chkNombre" placeholder="Nombre completo *" value="${chkState.nombre}" />
       <input type="text" id="chkTelefono" placeholder="WhatsApp / Teléfono *" value="${chkState.telefono}" />
-      ${chkState.tipoEnvio === 'domicilio' ? `<input type="text" id="chkDireccion" placeholder="Dirección completa *" value="${chkState.direccion}" />` : `<p class="sucursal-nota">🏪 Retirás en la sucursal de Correo Argentino más cercana a tu CP.</p>`}
+      ${chkState.tipoEnvio === 'domicilio'
+        ? `<input type="text" id="chkDireccion" placeholder="Dirección completa *" value="${chkState.direccion}" />`
+        : `<p class="sucursal-nota">🏪 Retirás en la sucursal de Correo Argentino más cercana a tu CP.</p>`}
     </div>
-
     <div class="checkout-table-wrap">
       <table class="checkout-table">
         <tbody>${resumen}</tbody>
@@ -360,7 +394,6 @@ function renderCheckoutPaso1() {
         </tfoot>
       </table>
     </div>
-
     <button class="btn-confirmar" id="btnPaso1Siguiente">Continuar al pago →</button>
   `;
   lucide.createIcons();
@@ -371,9 +404,9 @@ function renderCheckoutPaso1() {
       actualizarCostoEnvio();
       document.querySelectorAll('.envio-tipo-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      const datosDiv = document.querySelector('.checkout-datos');
+      const datosDiv      = document.querySelector('.checkout-datos');
       const existeDireccion = document.getElementById('chkDireccion');
-      const existeNota = document.querySelector('.sucursal-nota');
+      const existeNota    = document.querySelector('.sucursal-nota');
       if (chkState.tipoEnvio === 'domicilio' && !existeDireccion) {
         if (existeNota) existeNota.remove();
         datosDiv.insertAdjacentHTML('beforeend', `<input type="text" id="chkDireccion" placeholder="Dirección completa *" value="${chkState.direccion}" />`);
@@ -390,23 +423,23 @@ function renderCheckoutPaso1() {
 
 function actualizarCostoEnvio() {
   const prov = document.getElementById('chkProvincia')?.value || chkState.provincia;
-  chkState.provincia = prov;
+  chkState.provincia  = prov;
   chkState.costoEnvio = calcularEnvio(chkState.tipoEnvio, prov);
   const subtotal = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
-  const total = subtotal + chkState.costoEnvio;
+  const total    = subtotal + chkState.costoEnvio;
   const costoValor = document.getElementById('costoValor');
-  const envioFila = document.getElementById('envioFila');
-  const totalFila = document.getElementById('totalFila');
+  const envioFila  = document.getElementById('envioFila');
+  const totalFila  = document.getElementById('totalFila');
   if (costoValor) costoValor.textContent = fmt(chkState.costoEnvio);
-  if (envioFila) envioFila.textContent = fmt(chkState.costoEnvio);
-  if (totalFila) totalFila.innerHTML = `<strong>${fmt(total)}</strong>`;
+  if (envioFila)  envioFila.textContent  = fmt(chkState.costoEnvio);
+  if (totalFila)  totalFila.innerHTML    = `<strong>${fmt(total)}</strong>`;
 }
 
 function pasarAPago() {
-  chkState.nombre = document.getElementById('chkNombre')?.value.trim() || '';
-  chkState.telefono = document.getElementById('chkTelefono')?.value.trim() || '';
+  chkState.nombre    = document.getElementById('chkNombre')?.value.trim() || '';
+  chkState.telefono  = document.getElementById('chkTelefono')?.value.trim() || '';
   chkState.direccion = document.getElementById('chkDireccion')?.value.trim() || '';
-  chkState.cp = document.getElementById('chkCP')?.value.trim() || '';
+  chkState.cp        = document.getElementById('chkCP')?.value.trim() || '';
   chkState.provincia = document.getElementById('chkProvincia')?.value || chkState.provincia;
 
   if (!chkState.nombre || !chkState.telefono || !chkState.cp) {
@@ -417,38 +450,28 @@ function pasarAPago() {
     Swal.fire({ icon: 'warning', title: 'Falta la dirección', text: 'Ingresá tu dirección de entrega.', confirmButtonColor: '#c8a96e' });
     return;
   }
-
   chkState.paso = 2;
   renderCheckoutPaso2();
 }
 
-/* ─── PASO 2: Pago ─── */
 function renderCheckoutPaso2() {
   const subtotal = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
-  const total = subtotal + chkState.costoEnvio;
-
-  const qrData = encodeURIComponent(`Transferencia TuMateEntrerriano\nAlias: ${ALIAS_TRANSFERENCIA}\nMonto: ${total}\nCliente: ${chkState.nombre}`);
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${qrData}&color=c8a96e&bgcolor=1a1814`;
+  const total    = subtotal + chkState.costoEnvio;
+  const qrData   = encodeURIComponent(`Transferencia KaayMatesStore\nAlias: ${ALIAS_TRANSFERENCIA}\nMonto: ${total}\nCliente: ${chkState.nombre}`);
+  const qrUrl    = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${qrData}&color=c8a96e&bgcolor=1a1814`;
 
   $('checkoutInner').innerHTML = `
     ${renderSteps(2)}
     <h3 class="checkout-title">💳 Elegí cómo pagar</h3>
-
     <div class="metodo-pago-grid">
       <button class="metodo-btn ${chkState.metodoPago === 'transferencia' ? 'active' : ''}" data-metodo="transferencia">
-        <span class="metodo-icono">🏦</span>
-        <strong>Transferencia</strong>
-        <small>+ QR de pago</small>
+        <span class="metodo-icono">🏦</span><strong>Transferencia</strong><small>+ QR de pago</small>
       </button>
       <button class="metodo-btn ${chkState.metodoPago === 'qr' ? 'active' : ''}" data-metodo="qr">
-        <span class="metodo-icono">📱</span>
-        <strong>Escaneá QR</strong>
-        <small>Desde cualquier banco</small>
+        <span class="metodo-icono">📱</span><strong>Escaneá QR</strong><small>Desde cualquier banco</small>
       </button>
     </div>
-
     <div class="pago-detalle" id="pagoDetalle"></div>
-
     <div class="checkout-table-wrap" style="margin-top:1.2rem">
       <table class="checkout-table">
         <tfoot>
@@ -458,13 +481,11 @@ function renderCheckoutPaso2() {
         </tfoot>
       </table>
     </div>
-
     <div class="chk-nav">
       <button class="btn-volver" id="btnVolverPaso1">← Volver</button>
       <button class="btn-confirmar btn-confirmar--inline" id="btnConfirmarPedido">Confirmar pedido →</button>
     </div>
   `;
-
   lucide.createIcons();
   renderPagoDetalle(total, qrUrl);
 
@@ -476,18 +497,13 @@ function renderCheckoutPaso2() {
       renderPagoDetalle(total, qrUrl);
     });
   });
-
-  document.getElementById('btnVolverPaso1').addEventListener('click', () => {
-    chkState.paso = 1;
-    renderCheckoutPaso1();
-  });
+  document.getElementById('btnVolverPaso1').addEventListener('click', () => { chkState.paso = 1; renderCheckoutPaso1(); });
   document.getElementById('btnConfirmarPedido').addEventListener('click', confirmarPedido);
 }
 
 function renderPagoDetalle(total, qrUrl) {
   const detalle = document.getElementById('pagoDetalle');
   if (!detalle) return;
-
   if (chkState.metodoPago === 'transferencia') {
     detalle.innerHTML = `
       <div class="pago-transferencia">
@@ -502,53 +518,53 @@ function renderPagoDetalle(total, qrUrl) {
           <img class="pago-qr" src="${qrUrl}" alt="QR transferencia" onerror="this.style.display='none'" />
           <button class="btn-copiar" onclick="navigator.clipboard.writeText('${ALIAS_TRANSFERENCIA}').then(()=>this.textContent='¡Copiado!')">📋 Copiar alias</button>
         </div>
-      </div>
-    `;
+      </div>`;
   } else {
     detalle.innerHTML = `
       <div class="pago-qr-full">
-        <p>Escaneá este QR desde la app de tu banco para ver los datos del pago:</p>
+        <p>Escaneá este QR desde la app de tu banco:</p>
         <img class="pago-qr pago-qr--grande" src="${qrUrl}" alt="QR pago" onerror="this.style.display='none'" />
         <p class="pago-note">El QR contiene el alias <strong>${ALIAS_TRANSFERENCIA}</strong> y el monto <strong>${fmt(total)}</strong>.</p>
-        <p class="pago-note">También podés buscar el alias manualmente en tu banco.</p>
-      </div>
-    `;
+        <p class="pago-note">También podés buscarlo manualmente en tu banco.</p>
+      </div>`;
   }
 }
 
-/* ─── PASO 3: Confirmación ─── */
-function confirmarPedido() {
+/* ── Confirmar pedido → Firestore ───────────────────── */
+async function confirmarPedido() {
+  const btnConfirmar = document.getElementById('btnConfirmarPedido');
+  if (btnConfirmar) { btnConfirmar.disabled = true; btnConfirmar.textContent = 'Guardando…'; }
+
   const subtotal = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
-  const total = subtotal + chkState.costoEnvio;
+  const total    = subtotal + chkState.costoEnvio;
   const resumenTexto = carrito.map(c => `• ${c.nombre} ×${c.cantidad} = ${fmt(c.precio * c.cantidad)}`).join('\n');
 
-  // ── Guardar pedido en localStorage ──
-  const pedidosGuardados = JSON.parse(localStorage.getItem(PEDIDOS_KEY) || '[]');
-  const nuevoPedido = {
-    id:         Date.now(),
-    fecha:      Date.now(),
-    estado:     'pendiente',
-    nombre:     chkState.nombre,
-    telefono:   chkState.telefono,
-    provincia:  chkState.provincia,
-    cp:         chkState.cp,
-    direccion:  chkState.direccion,
-    tipoEnvio:  chkState.tipoEnvio,
-    costoEnvio: chkState.costoEnvio,
-    metodoPago: chkState.metodoPago,
-    items:      carrito.map(c => ({
-      id:       c.id,
-      nombre:   c.nombre,
-      precio:   c.precio,
-      cantidad: c.cantidad
-    })),
-    subtotal,
-    total,
-    nota: ''
-  };
-  pedidosGuardados.push(nuevoPedido);
-  localStorage.setItem(PEDIDOS_KEY, JSON.stringify(pedidosGuardados));
-  // ── Fin guardado ──
+  let pedidoId = null;
+  try {
+    pedidoId = await fb_guardarPedido({
+      nombre:     chkState.nombre,
+      telefono:   chkState.telefono,
+      provincia:  chkState.provincia,
+      cp:         chkState.cp,
+      direccion:  chkState.direccion,
+      tipoEnvio:  chkState.tipoEnvio,
+      costoEnvio: chkState.costoEnvio,
+      metodoPago: chkState.metodoPago,
+      items: carrito.map(c => ({
+        firestoreId: c.firestoreId,
+        nombre:      c.nombre,
+        precio:      c.precio,
+        cantidad:    c.cantidad,
+      })),
+      subtotal,
+      total,
+    });
+  } catch (err) {
+    console.error('Error guardando pedido:', err);
+    Swal.fire({ icon: 'error', title: 'Error al guardar el pedido', text: 'Revisá tu conexión e intentá de nuevo.', confirmButtonColor: '#c8a96e' });
+    if (btnConfirmar) { btnConfirmar.disabled = false; btnConfirmar.textContent = 'Confirmar pedido →'; }
+    return;
+  }
 
   $('checkoutInner').innerHTML = `
     ${renderSteps(3)}
@@ -556,14 +572,13 @@ function confirmarPedido() {
       <div class="success-icon">🧉</div>
       <h3>¡Pedido confirmado!</h3>
       <p>Gracias <strong>${chkState.nombre}</strong>, ya registramos tu pedido.</p>
-
+      <p style="font-size:.85rem;color:#7a6540">N° de pedido: <code>${pedidoId}</code></p>
       <div class="transfer-box">
         <h4>📲 Realizá tu pago</h4>
         <div class="dato-fila"><span>Alias</span><strong class="alias-code">${ALIAS_TRANSFERENCIA}</strong></div>
         <div class="dato-fila"><span>Monto total</span><strong class="monto-grande">${fmt(total)}</strong></div>
         <p class="pago-note" style="margin-top:.5rem">Envianos el comprobante por WhatsApp al <strong>${chkState.telefono || 'tu número'}</strong> y coordinamos el envío.</p>
       </div>
-
       <div class="envio-confirmado">
         <h4>📦 Datos de envío</h4>
         <p><strong>Tipo:</strong> ${chkState.tipoEnvio === 'domicilio' ? 'Domicilio (Correo Argentino)' : 'Sucursal (Correo Argentino)'}</p>
@@ -571,12 +586,10 @@ function confirmarPedido() {
         ${chkState.tipoEnvio === 'domicilio' ? `<p><strong>Dirección:</strong> ${chkState.direccion}</p>` : '<p>Retirás en la sucursal más cercana a tu código postal.</p>'}
         <p><strong>Costo de envío:</strong> ${fmt(chkState.costoEnvio)}</p>
       </div>
-
       <div class="checkout-resumen-final">
         <h4>Resumen</h4>
         <pre>${resumenTexto}\n\nEnvío (${chkState.tipoEnvio}): ${fmt(chkState.costoEnvio)}\nTotal: ${fmt(total)}</pre>
       </div>
-
       <button class="btn-confirmar" id="btnCerrarCheckout">Entendido ✓</button>
     </div>
   `;
@@ -589,11 +602,7 @@ function confirmarPedido() {
 }
 
 function renderSteps(activo) {
-  const steps = [
-    { n: 1, label: 'Envío' },
-    { n: 2, label: 'Pago' },
-    { n: 3, label: 'Confirmación' }
-  ];
+  const steps = [{ n: 1, label: 'Envío' }, { n: 2, label: 'Pago' }, { n: 3, label: 'Confirmación' }];
   return `<div class="checkout-steps">
     ${steps.map(s => `
       <div class="checkout-step ${s.n === activo ? 'checkout-step--active' : s.n < activo ? 'checkout-step--done' : ''}">
@@ -658,13 +667,13 @@ function renderAdminTable() {
       <td>${fmt(p.precio)}</td>
       <td>${p.stock ?? '—'}</td>
       <td>
-        <button class="toggle-disp ${p.disponible === false ? 'off' : 'on'}" data-id="${p.id}">
+        <button class="toggle-disp ${p.disponible === false ? 'off' : 'on'}" data-id="${p.firestoreId}">
           ${p.disponible === false ? 'No disp.' : 'Disponible'}
         </button>
       </td>
       <td class="admin-row-actions">
-        <button class="btn-edit-prod" data-id="${p.id}" title="Editar"><i data-lucide="pencil"></i></button>
-        <button class="btn-del-prod" data-id="${p.id}" title="Eliminar"><i data-lucide="trash-2"></i></button>
+        <button class="btn-edit-prod" data-id="${p.firestoreId}" title="Editar"><i data-lucide="pencil"></i></button>
+        <button class="btn-del-prod" data-id="${p.firestoreId}" title="Eliminar"><i data-lucide="trash-2"></i></button>
       </td>
     </tr>
   `).join('');
@@ -672,26 +681,30 @@ function renderAdminTable() {
   lucide.createIcons();
 
   tbody.querySelectorAll('.btn-edit-prod').forEach(btn =>
-    btn.addEventListener('click', () => abrirModalProducto(parseInt(btn.dataset.id)))
+    btn.addEventListener('click', () => abrirModalProducto(btn.dataset.id))
   );
   tbody.querySelectorAll('.btn-del-prod').forEach(btn =>
-    btn.addEventListener('click', () => eliminarProducto(parseInt(btn.dataset.id)))
+    btn.addEventListener('click', () => eliminarProducto(btn.dataset.id))
   );
   tbody.querySelectorAll('.toggle-disp').forEach(btn =>
-    btn.addEventListener('click', () => toggleDisponibilidad(parseInt(btn.dataset.id)))
+    btn.addEventListener('click', () => toggleDisponibilidad(btn.dataset.id))
   );
 }
 
-function toggleDisponibilidad(id) {
-  const p = productos.find(x => x.id === id);
+async function toggleDisponibilidad(firestoreId) {
+  const p = productos.find(x => x.firestoreId === firestoreId);
   if (!p) return;
-  p.disponible = p.disponible === false ? true : false;
-  guardarProductos();
-  renderAdminTable();
-  renderProductos();
+  const nuevoValor = p.disponible === false ? true : false;
+  try {
+    await fb_actualizarProducto(firestoreId, { disponible: nuevoValor });
+    // onSnapshot actualizará el array automáticamente
+  } catch (err) {
+    console.error('Error actualizando disponibilidad:', err);
+    Swal.fire({ icon: 'error', title: 'Error al actualizar', confirmButtonColor: '#c8a96e' });
+  }
 }
 
-function eliminarProducto(id) {
+function eliminarProducto(firestoreId) {
   Swal.fire({
     title: '¿Eliminar producto?',
     text: 'Esta acción no se puede deshacer.',
@@ -701,31 +714,34 @@ function eliminarProducto(id) {
     cancelButtonColor: '#555',
     confirmButtonText: 'Eliminar',
     cancelButtonText: 'Cancelar'
-  }).then(res => {
+  }).then(async res => {
     if (res.isConfirmed) {
-      productos = productos.filter(p => p.id !== id);
-      guardarProductos();
-      renderAdminTable();
-      renderProductos();
+      try {
+        await fb_eliminarProducto(firestoreId);
+        // onSnapshot actualiza la lista automáticamente
+      } catch (err) {
+        console.error('Error eliminando producto:', err);
+        Swal.fire({ icon: 'error', title: 'Error al eliminar', confirmButtonColor: '#c8a96e' });
+      }
     }
   });
 }
 
 /* ── Admin: modal producto ──────────────────────────── */
-function abrirModalProducto(id = null) {
-  editingProductId = id;
-  $('productModalTitle').textContent = id ? 'Editar producto' : 'Nuevo producto';
+function abrirModalProducto(firestoreId = null) {
+  editingProductId = firestoreId;
+  $('productModalTitle').textContent = firestoreId ? 'Editar producto' : 'Nuevo producto';
   $('productModal').hidden = false;
 
-  if (id) {
-    const p = productos.find(x => x.id === id);
+  if (firestoreId) {
+    const p = productos.find(x => x.firestoreId === firestoreId);
     if (p) {
-      $('pNombre').value = p.nombre;
-      $('pCategoria').value = p.categoria;
-      $('pPrecio').value = p.precio;
-      $('pStock').value = p.stock ?? 0;
+      $('pNombre').value      = p.nombre;
+      $('pCategoria').value   = p.categoria;
+      $('pPrecio').value      = p.precio;
+      $('pStock').value       = p.stock ?? 0;
       $('pDescripcion').value = p.descripcion || '';
-      $('pImagen').value = p.imagen || '';
+      $('pImagen').value      = p.imagen || '';
       if (p.imagen) {
         document.getElementById('imagenPreview').src = p.imagen;
         document.getElementById('imagenPreviewWrap').style.display = 'flex';
@@ -749,7 +765,7 @@ function cerrarModalProducto() {
   $('overlay').classList.remove('active');
 }
 
-function guardarProducto() {
+async function guardarProducto() {
   const nombre = $('pNombre').value.trim();
   const precio = parseFloat($('pPrecio').value);
   if (!nombre || isNaN(precio)) {
@@ -759,30 +775,37 @@ function guardarProducto() {
 
   const data = {
     nombre,
-    categoria: $('pCategoria').value,
+    categoria:   $('pCategoria').value,
     precio,
-    stock: parseInt($('pStock').value) || 0,
+    stock:       parseInt($('pStock').value) || 0,
     descripcion: $('pDescripcion').value.trim(),
-    imagen: $('pImagen').value.trim(),
-    destacado: $('pDestacado').checked,
-    disponible: $('pDisponible').checked
+    imagen:      $('pImagen').value.trim(),
+    destacado:   $('pDestacado').checked,
+    disponible:  $('pDisponible').checked,
   };
 
-  if (editingProductId) {
-    const idx = productos.findIndex(p => p.id === editingProductId);
-    if (idx >= 0) productos[idx] = { ...productos[idx], ...data };
-  } else {
-    productos.push({ id: genId(), ...data });
-  }
+  const btnGuardar = $('btnSaveProduct');
+  btnGuardar.disabled = true;
+  btnGuardar.textContent = 'Guardando…';
 
-  guardarProductos();
-  cerrarModalProducto();
-  renderAdminTable();
-  renderProductos();
-  Swal.fire({ icon: 'success', title: 'Guardado', timer: 1200, showConfirmButton: false });
+  try {
+    if (editingProductId) {
+      await fb_actualizarProducto(editingProductId, data);
+    } else {
+      await fb_agregarProducto(data);
+    }
+    cerrarModalProducto();
+    Swal.fire({ icon: 'success', title: 'Guardado', timer: 1200, showConfirmButton: false });
+  } catch (err) {
+    console.error('Error guardando producto:', err);
+    Swal.fire({ icon: 'error', title: 'Error al guardar', confirmButtonColor: '#c8a96e' });
+  } finally {
+    btnGuardar.disabled = false;
+    btnGuardar.textContent = 'Guardar producto';
+  }
 }
 
-/* ── Export JSON ─────────────────────────────────────── */
+/* ── Export JSON (desde memoria) ─────────────────────── */
 function exportarJSON() {
   const blob = new Blob([JSON.stringify(productos, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
@@ -793,7 +816,6 @@ function exportarJSON() {
 
 /* ── Event Listeners ────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', async () => {
-  await cargarProductos();
 
   // Restaurar sesión admin
   if (sessionStorage.getItem(ADMIN_SESSION)) adminLoggedIn = true;
@@ -801,10 +823,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Upload imagen (delegado)
   configurarUploadImagen();
 
+  // Iniciar escucha de productos en Firestore (tiempo real)
+  escucharProductos();
+
   // Hero CTA
-  $('heroCta').addEventListener('click', () => {
-    $('shop').scrollIntoView({ behavior: 'smooth' });
-  });
+  $('heroCta').addEventListener('click', () => $('shop').scrollIntoView({ behavior: 'smooth' }));
 
   // Filtros nav
   document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -825,7 +848,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('cartClose').addEventListener('click', cerrarCarrito);
   $('btnCheckout').addEventListener('click', abrirCheckout);
 
-  // Checkout modal cierre
+  // Checkout
   $('checkoutClose').addEventListener('click', cerrarCheckout);
 
   // Overlay
@@ -837,26 +860,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     cerrarModalProducto();
   });
 
-  // Admin botón
+  // Admin
   $('adminToggle').addEventListener('click', () => {
-    if (adminLoggedIn) {
-      abrirAdmin();
-    } else {
-      abrirLoginAdmin();
-    }
+    if (adminLoggedIn) abrirAdmin();
+    else abrirLoginAdmin();
   });
 
-  // Login admin
   $('btnLoginSubmit').addEventListener('click', intentarLogin);
   $('btnLoginCancel').addEventListener('click', cerrarLoginAdmin);
   $('adminPassword').addEventListener('keydown', e => { if (e.key === 'Enter') intentarLogin(); });
 
-  // Admin panel
   $('adminClose').addEventListener('click', cerrarAdmin);
   $('btnAddProduct').addEventListener('click', () => abrirModalProducto());
   $('btnExportJSON').addEventListener('click', exportarJSON);
 
-  // Modal producto
   $('productModalClose').addEventListener('click', cerrarModalProducto);
   $('btnCancelProduct').addEventListener('click', cerrarModalProducto);
   $('btnSaveProduct').addEventListener('click', guardarProducto);
