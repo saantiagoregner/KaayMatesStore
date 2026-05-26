@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -14,7 +13,7 @@
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
- 
+
 <!-- HEADER -->
 <header class="header">
   <div class="header__inner">
@@ -42,7 +41,7 @@
     </div>
   </div>
 </header>
- 
+
 <!-- HERO -->
 <section class="hero">
   <div class="hero__content">
@@ -52,7 +51,7 @@
     <button class="hero__cta" id="heroCta">Explorar productos</button>
   </div>
 </section>
- 
+
 <!-- SHOP -->
 <section class="shop" id="shop">
   <div class="shop__controls">
@@ -75,7 +74,7 @@
     <p>No encontramos productos con esa búsqueda.</p>
   </div>
 </section>
- 
+
 <!-- CARRITO SIDEBAR -->
 <aside class="cart-sidebar" id="cartSidebar" aria-hidden="true">
   <div class="cart-sidebar__header">
@@ -100,7 +99,7 @@
     <button class="btn-checkout" id="btnCheckout">Finalizar compra →</button>
   </div>
 </aside>
- 
+
 <!-- MODAL CHECKOUT -->
 <div class="checkout-modal" id="checkoutModal" hidden>
   <div class="checkout-modal__box">
@@ -108,7 +107,7 @@
     <div class="checkout-modal__inner" id="checkoutInner"></div>
   </div>
 </div>
- 
+
 <!-- PANEL ADMIN -->
 <div class="admin-panel" id="adminPanel" hidden>
   <div class="admin-panel__header">
@@ -116,16 +115,16 @@
     <button class="admin-close" id="adminClose">✕</button>
   </div>
   <div class="admin-panel__body">
-<div class="admin-actions">
-  <button class="btn-admin-add" id="btnAddProduct">
-    <i data-lucide="plus-circle"></i> Nuevo producto
-    </button>
-    <button class="btn-admin-export" id="btnExportJSON">
-    <i data-lucide="download"></i> Exportar JSON
-    </button>
-    <button class="btn-admin-postventa" onclick="window.location.href='admin-ventas.html'">
-    <i data-lucide="clipboard-list"></i> Panel Postventa
-    </button>
+    <div class="admin-actions">
+      <button class="btn-admin-add" id="btnAddProduct">
+        <i data-lucide="plus-circle"></i> Nuevo producto
+      </button>
+      <button class="btn-admin-export" id="btnExportJSON">
+        <i data-lucide="download"></i> Exportar JSON
+      </button>
+      <button class="btn-admin-postventa" onclick="window.location.href='admin-ventas.html'">
+        <i data-lucide="clipboard-list"></i> Panel Postventa
+      </button>
     </div>
     <div class="admin-table-wrap">
       <table class="admin-table" id="adminTable">
@@ -144,6 +143,7 @@
     </div>
   </div>
 </div>
+
 <!-- MODAL PRODUCTO (ADMIN) -->
 <div class="product-modal" id="productModal" hidden>
   <div class="product-modal__box">
@@ -176,8 +176,18 @@
         <textarea id="pDescripcion" rows="3" placeholder="Descripción del producto…"></textarea>
       </div>
       <div class="form-row">
-        <label>URL de imagen</label>
-        <input type="text" id="pImagen" placeholder="img/mifoto.jpg o https://..." />
+        <label>Imagen del producto</label>
+        <div class="imagen-upload-wrap">
+          <input type="file" id="pImagenFile" accept="image/*" style="display:none" />
+          <button type="button" class="btn-foto" onclick="document.getElementById('pImagenFile').click()">
+            <i data-lucide="camera"></i> Sacar foto / Elegir imagen
+          </button>
+          <div class="imagen-preview-wrap" id="imagenPreviewWrap" style="display:none">
+            <img id="imagenPreview" src="" alt="Preview" />
+            <button type="button" class="btn-quitar-foto" onclick="quitarImagen()">✕ Quitar</button>
+          </div>
+        </div>
+        <input type="hidden" id="pImagen" />
       </div>
       <div class="form-row form-row--check">
         <label><input type="checkbox" id="pDestacado" /> Producto destacado</label>
@@ -190,7 +200,7 @@
     </form>
   </div>
 </div>
- 
+
 <!-- LOGIN ADMIN -->
 <div class="admin-login" id="adminLogin" hidden>
   <div class="admin-login__box">
@@ -203,9 +213,9 @@
     <p class="admin-login__hint">(contraseña por defecto: <strong>mate2025</strong>)</p>
   </div>
 </div>
- 
+
 <div class="overlay" id="overlay" aria-hidden="true"></div>
- 
+
 <!-- FOOTER -->
 <footer class="footer">
   <div class="footer__inner">
@@ -214,9 +224,8 @@
     <p class="footer__copy">Artesanos y productores de la Mesopotamia</p>
   </div>
 </footer>
- 
+
 <script src="app.js"></script>
 <script>lucide.createIcons();</script>
 </body>
 </html>
- 
