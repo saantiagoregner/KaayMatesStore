@@ -793,7 +793,48 @@ code { background: var(--c-surface2); padding: .1em .4em; border-radius: 4px; }
 .btn-admin-postventa:hover {
   background: #3e5c3e;
 }
-
+.imagen-upload-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+}
+.btn-foto {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  background: #2a2520;
+  border: 1px dashed #c8a96e;
+  color: #c8a96e;
+  padding: .7rem 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: .95rem;
+  transition: background .2s;
+}
+.btn-foto:hover { background: #332e27; }
+.imagen-preview-wrap {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+}
+.imagen-preview-wrap img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #3a3428;
+}
+.btn-quitar-foto {
+  background: none;
+  border: 1px solid #e05252;
+  color: #e05252;
+  padding: .3rem .7rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: .85rem;
+}
 /* ── Footer ──────────────────────────────────────────── */
 .footer {
   border-top: 1px solid var(--c-border);

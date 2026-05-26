@@ -29,6 +29,26 @@ const fmt = n => new Intl.NumberFormat('es-AR', { style: 'currency', currency: '
 function genId() {
   return Date.now() + Math.floor(Math.random() * 1000);
 }
+function quitarImagen() {
+  document.getElementById('pImagen').value = '';
+  document.getElementById('pImagenFile').value = '';
+  document.getElementById('imagenPreview').src = '';
+  document.getElementById('imagenPreviewWrap').style.display = 'none';
+}
+
+function configurarUploadImagen() {
+  document.getElementById('pImagenFile').addEventListener('change', function() {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      document.getElementById('pImagen').value = e.target.result;
+      document.getElementById('imagenPreview').src = e.target.result;
+      document.getElementById('imagenPreviewWrap').style.display = 'flex';
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 /* ── Carga de productos ─────────────────────────────── */
 async function cargarProductos() {
@@ -680,11 +700,18 @@ function abrirModalProducto(id = null) {
       $('pStock').value = p.stock ?? 0;
       $('pDescripcion').value = p.descripcion || '';
       $('pImagen').value = p.imagen || '';
+      if (p.imagen) {
+        document.getElementById('imagenPreview').src = p.imagen;
+        document.getElementById('imagenPreviewWrap').style.display = 'flex';
+      } else {
+      document.getElementById('imagenPreviewWrap').style.display = 'none';
+      }
       $('pDestacado').checked = !!p.destacado;
       $('pDisponible').checked = p.disponible !== false;
     }
   } else {
     $('productForm').reset();
+    document.getElementById('imagenPreviewWrap').style.display = 'none';
     $('pDisponible').checked = true;
   }
 }
@@ -759,6 +786,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       filtroActual = btn.dataset.filter;
       renderProductos();
     });
+    configurarUploadImagen();
   });
 
   // Búsqueda y ordenamiento
