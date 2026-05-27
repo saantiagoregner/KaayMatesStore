@@ -93,7 +93,6 @@ onAuthStateChanged(auth, (user) => {
     adminLoggedIn = true;
   } else {
     adminLoggedIn = false;
-    // Si el panel estaba abierto, cerrarlo
     if ($('adminPanel') && !$('adminPanel').hidden) cerrarAdmin();
   }
 });
@@ -143,7 +142,6 @@ function configurarUploadImagen() {
     const file = this.files[0];
     if (!file) return;
 
-    // Redimensionar antes de guardar para evitar documentos muy pesados
     const reader = new FileReader();
     reader.onload = function (ev) {
       const img = new Image();
@@ -293,6 +291,8 @@ function cambiarCantidad(firestoreId, delta) {
   else renderCarrito();
 }
 
+const UMBRAL_ENVIO_GRATIS = 50000;
+
 function renderCarrito() {
   const items  = $('cartItems');
   const empty  = $('cartEmpty');
@@ -309,8 +309,12 @@ function renderCarrito() {
     footer.hidden   = true;
     return;
   }
-  empty.hidden  = true;
+  empty.hidden  = false;
   footer.hidden = false;
+
+  const envioGratis = total >= UMBRAL_ENVIO_GRATIS;
+  const envio       = envioGratis ? 0 : calcularEnvio('domicilio', PROVINCIAS[0]);
+  const faltaParaGratis = UMBRAL_ENVIO_GRATIS - total;
 
   items.innerHTML = carrito.map(c => `
     <div class="cart-item">
@@ -326,7 +330,11 @@ function renderCarrito() {
       </div>
       <button class="cart-item__remove" data-id="${c.firestoreId}"><i data-lucide="trash-2"></i></button>
     </div>
-  `).join('');
+  `).join('') + (!envioGratis ? `
+    <div class="cart-envio-promo">
+      🚚 Te faltan <strong>${fmt(faltaParaGratis)}</strong> para envío gratis
+    </div>
+  ` : '');
 
   lucide.createIcons();
 
@@ -337,10 +345,10 @@ function renderCarrito() {
     btn.addEventListener('click', () => quitarDelCarrito(btn.dataset.id));
   });
 
-  const envio = total > 10000 ? 0 : 1200;
   $('cartSubtotal').textContent = fmt(total);
-  $('cartEnvio').textContent    = envio === 0 ? 'Gratis 🎉' : fmt(envio);
+  $('cartEnvio').textContent    = envioGratis ? 'Gratis 🎉' : fmt(envio) + ' (estimado)';
   $('cartTotal').textContent    = fmt(total + envio);
+  empty.hidden = true;
 }
 
 function abrirCarrito() {
@@ -374,6 +382,8 @@ const PROVINCIAS = Object.keys(TARIFAS_ENVIO.domicilio).sort();
 let chkState = {};
 
 function calcularEnvio(tipo, provincia) {
+  const subtotal = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
+  if (subtotal >= UMBRAL_ENVIO_GRATIS) return 0;
   const tabla = TARIFAS_ENVIO[tipo] || TARIFAS_ENVIO.domicilio;
   return tabla[provincia] || 3000;
 }
@@ -420,7 +430,7 @@ function renderCheckoutPaso1() {
     </div>
     <div class="costo-envio-preview" id="costoEnvioPreview">
       <span>Costo de envío estimado</span>
-      <span class="costo-valor" id="costoValor">${fmt(chkState.costoEnvio)}</span>
+      <span class="costo-valor" id="costoValor">${chkState.costoEnvio === 0 ? 'Gratis 🎉' : fmt(chkState.costoEnvio)}</span>
     </div>
     <h3 class="checkout-title" style="margin-top:1.5rem">👤 Tus datos</h3>
     <div class="checkout-datos">
@@ -434,7 +444,7 @@ function renderCheckoutPaso1() {
       <table class="checkout-table">
         <tbody>${resumen}</tbody>
         <tfoot>
-          <tr><td>Envío (${chkState.tipoEnvio === 'sucursal' ? 'sucursal' : 'domicilio'})</td><td id="envioFila">${fmt(chkState.costoEnvio)}</td></tr>
+          <tr><td>Envío (${chkState.tipoEnvio === 'sucursal' ? 'sucursal' : 'domicilio'})</td><td id="envioFila">${chkState.costoEnvio === 0 ? 'Gratis 🎉' : fmt(chkState.costoEnvio)}</td></tr>
           <tr class="checkout-total"><td><strong>Total</strong></td><td id="totalFila"><strong>${fmt(total)}</strong></td></tr>
         </tfoot>
       </table>
@@ -475,8 +485,9 @@ function actualizarCostoEnvio() {
   const costoValor = document.getElementById('costoValor');
   const envioFila  = document.getElementById('envioFila');
   const totalFila  = document.getElementById('totalFila');
-  if (costoValor) costoValor.textContent = fmt(chkState.costoEnvio);
-  if (envioFila)  envioFila.textContent  = fmt(chkState.costoEnvio);
+  const envioTexto = chkState.costoEnvio === 0 ? 'Gratis 🎉' : fmt(chkState.costoEnvio);
+  if (costoValor) costoValor.textContent = envioTexto;
+  if (envioFila)  envioFila.textContent  = envioTexto;
   if (totalFila)  totalFila.innerHTML    = `<strong>${fmt(total)}</strong>`;
 }
 
@@ -504,6 +515,7 @@ function renderCheckoutPaso2() {
   const total    = subtotal + chkState.costoEnvio;
   const qrData   = encodeURIComponent(`Transferencia KaayMatesStore\nAlias: ${ALIAS_TRANSFERENCIA}\nMonto: ${total}\nCliente: ${chkState.nombre}`);
   const qrUrl    = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${qrData}&color=c8a96e&bgcolor=1a1814`;
+  const envioTexto = chkState.costoEnvio === 0 ? 'Gratis 🎉' : fmt(chkState.costoEnvio);
 
   $('checkoutInner').innerHTML = `
     ${renderSteps(2)}
@@ -521,7 +533,7 @@ function renderCheckoutPaso2() {
       <table class="checkout-table">
         <tfoot>
           <tr><td>Productos</td><td>${fmt(subtotal)}</td></tr>
-          <tr><td>Envío (${chkState.tipoEnvio === 'sucursal' ? 'sucursal' : 'domicilio'} · ${chkState.provincia})</td><td>${fmt(chkState.costoEnvio)}</td></tr>
+          <tr><td>Envío (${chkState.tipoEnvio === 'sucursal' ? 'sucursal' : 'domicilio'} · ${chkState.provincia})</td><td>${envioTexto}</td></tr>
           <tr class="checkout-total"><td><strong>Total a pagar</strong></td><td><strong>${fmt(total)}</strong></td></tr>
         </tfoot>
       </table>
@@ -581,6 +593,7 @@ async function confirmarPedido() {
   const subtotal     = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
   const total        = subtotal + chkState.costoEnvio;
   const resumenTexto = carrito.map(c => `• ${c.nombre} ×${c.cantidad} = ${fmt(c.precio * c.cantidad)}`).join('\n');
+  const envioTexto   = chkState.costoEnvio === 0 ? 'Gratis' : fmt(chkState.costoEnvio);
 
   let pedidoId = null;
   try {
@@ -622,11 +635,11 @@ async function confirmarPedido() {
         <p><strong>Tipo:</strong> ${chkState.tipoEnvio === 'domicilio' ? 'Domicilio (Correo Argentino)' : 'Sucursal (Correo Argentino)'}</p>
         <p><strong>Provincia:</strong> ${chkState.provincia} · CP: ${chkState.cp}</p>
         ${chkState.tipoEnvio === 'domicilio' ? `<p><strong>Dirección:</strong> ${chkState.direccion}</p>` : '<p>Retirás en la sucursal más cercana a tu CP.</p>'}
-        <p><strong>Costo de envío:</strong> ${fmt(chkState.costoEnvio)}</p>
+        <p><strong>Costo de envío:</strong> ${envioTexto}</p>
       </div>
       <div class="checkout-resumen-final">
         <h4>Resumen</h4>
-        <pre>${resumenTexto}\n\nEnvío (${chkState.tipoEnvio}): ${fmt(chkState.costoEnvio)}\nTotal: ${fmt(total)}</pre>
+        <pre>${resumenTexto}\n\nEnvío (${chkState.tipoEnvio}): ${envioTexto}\nTotal: ${fmt(total)}</pre>
       </div>
       <button class="btn-confirmar" id="btnCerrarCheckout">Entendido ✓</button>
     </div>
@@ -871,7 +884,6 @@ document.addEventListener('DOMContentLoaded', () => {
     else abrirLoginAdmin();
   });
 
-  // Login con Firebase Auth
   $('btnLoginSubmit').addEventListener('click', intentarLogin);
   $('btnLoginCancel').addEventListener('click', cerrarLoginAdmin);
   $('adminPassword').addEventListener('keydown', e => { if (e.key === 'Enter') intentarLogin(); });
