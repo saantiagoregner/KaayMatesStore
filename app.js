@@ -133,17 +133,46 @@ async function cerrarSesionAdmin() {
 
 /* ── Upload de imagen ───────────────────────────────── */
 function configurarUploadImagen() {
-  document.addEventListener('change', function (e) {
-    if (e.target.id !== 'pImagenFile') return;
-    const file = e.target.files[0];
+  const inputFile = document.getElementById('pImagenFile');
+  const btnFoto   = document.getElementById('btnTomarFoto');
+  const btnQuitar = document.getElementById('btnQuitarFoto');
+
+  btnFoto?.addEventListener('click', () => inputFile.click());
+
+  inputFile?.addEventListener('change', function () {
+    const file = this.files[0];
     if (!file) return;
+
+    // Redimensionar antes de guardar para evitar documentos muy pesados
     const reader = new FileReader();
     reader.onload = function (ev) {
-      $('pImagen').value = ev.target.result;
-      $('imagenPreview').src = ev.target.result;
-      $('imagenPreviewWrap').style.display = 'flex';
+      const img = new Image();
+      img.onload = function () {
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else       { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const base64 = canvas.toDataURL('image/jpeg', 0.75);
+        document.getElementById('pImagen').value = base64;
+        document.getElementById('imagenPreview').src = base64;
+        document.getElementById('imagenPreviewWrap').style.display = 'flex';
+        lucide.createIcons();
+      };
+      img.src = ev.target.result;
     };
     reader.readAsDataURL(file);
+  });
+
+  btnQuitar?.addEventListener('click', function () {
+    document.getElementById('pImagen').value = '';
+    document.getElementById('imagenPreview').src = '';
+    document.getElementById('imagenPreviewWrap').style.display = 'none';
+    document.getElementById('pImagenFile').value = '';
   });
 }
 

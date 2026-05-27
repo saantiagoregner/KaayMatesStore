@@ -835,6 +835,21 @@ code { background: var(--c-surface2); padding: .1em .4em; border-radius: 4px; }
   font-family: inherit;
   font-size: .85rem;
 }
+.btn-admin-ventas {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .5rem 1rem;
+  background: #2d4a22;
+  color: #fff;
+  border-radius: 8px;
+  font-family: 'Crimson Pro', serif;
+  font-size: .9rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: filter .15s;
+}
+.btn-admin-ventas:hover { filter: brightness(1.15); }
 /* ── Footer ──────────────────────────────────────────── */
 .footer {
   border-top: 1px solid var(--c-border);

@@ -120,14 +120,17 @@
     </div>
   </div>
   <div class="admin-panel__body">
-    <div class="admin-actions">
-      <button class="btn-admin-add" id="btnAddProduct">
-        <i data-lucide="plus-circle"></i> Nuevo producto
-      </button>
-      <button class="btn-admin-export" id="btnExportJSON">
-        <i data-lucide="download"></i> Exportar JSON
-      </button>
-    </div>
+  <div class="admin-actions">
+    <button class="btn-admin-add" id="btnAddProduct">
+      <i data-lucide="plus-circle"></i> Nuevo producto
+    </button>
+    <button class="btn-admin-export" id="btnExportJSON">
+      <i data-lucide="download"></i> Exportar JSON
+    </button>
+    <a class="btn-admin-ventas" href="admin-ventas.html" target="_blank">
+      <i data-lucide="shopping-bag"></i> Panel de ventas
+    </a>
+  </div>
     <div class="admin-table-wrap">
       <table class="admin-table" id="adminTable">
         <thead>
@@ -152,10 +155,12 @@
     <button class="product-modal__close" id="productModalClose">✕</button>
     <h3 id="productModalTitle">Nuevo producto</h3>
     <form id="productForm" class="product-form" onsubmit="return false;">
+
       <div class="form-row">
         <label>Nombre *</label>
         <input type="text" id="pNombre" required placeholder="Nombre del producto" />
       </div>
+
       <div class="form-row">
         <label>Categoría *</label>
         <select id="pCategoria">
@@ -165,22 +170,52 @@
           <option value="kits">Kits</option>
         </select>
       </div>
+
       <div class="form-row">
         <label>Precio (ARS) *</label>
         <input type="number" id="pPrecio" required min="0" placeholder="Ej: 4500" />
       </div>
+
       <div class="form-row">
         <label>Stock</label>
         <input type="number" id="pStock" min="0" value="0" />
       </div>
+
       <div class="form-row">
         <label>Descripción</label>
         <textarea id="pDescripcion" rows="3" placeholder="Descripción del producto…"></textarea>
       </div>
+
       <div class="form-row">
-        <label>URL de imagen</label>
-        <input type="text" id="pImagen" placeholder="img/mifoto.jpg o https://..." />
+        <label>Imagen del producto</label>
+        <div class="imagen-upload-wrap">
+          <input type="file" id="pImagenFile" accept="image/*" capture="environment" style="display:none" />
+          <button type="button" class="btn-foto" id="btnTomarFoto">
+            <i data-lucide="camera"></i> Sacar foto / Elegir imagen
+          </button>
+          <div class="imagen-preview-wrap" id="imagenPreviewWrap" style="display:none">
+            <img id="imagenPreview" src="" alt="Preview" />
+            <button type="button" class="btn-quitar-foto" id="btnQuitarFoto">✕ Quitar</button>
+          </div>
+        </div>
+        <input type="hidden" id="pImagen" />
       </div>
+
+      <div class="form-row form-row--check">
+        <label><input type="checkbox" id="pDestacado" /> Producto destacado</label>
+        <label><input type="checkbox" id="pDisponible" checked /> Disponible para venta</label>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn-cancel" id="btnCancelProduct">Cancelar</button>
+        <button type="submit" class="btn-save" id="btnSaveProduct">Guardar producto</button>
+      </div>
+
+    </form>
+  </div>
+</div>
+  <input type="hidden" id="pImagen" />
+</div>
       <div class="form-row form-row--check">
         <label><input type="checkbox" id="pDestacado" /> Producto destacado</label>
         <label><input type="checkbox" id="pDisponible" checked /> Disponible para venta</label>
