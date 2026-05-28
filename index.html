@@ -19,7 +19,6 @@
     margin-top: 1rem;
     flex-wrap: wrap;
   }
-
   .footer__social-btn {
     display: inline-flex;
     align-items: center;
@@ -33,19 +32,17 @@
     font-family: inherit;
     transition: background .2s, color .2s;
   }
-
   .footer__social-btn:hover {
     background: #c8a96e;
-    color: #1a1a1a;
+    color: #1a1814;
   }
-
   .footer__social-btn svg {
     flex-shrink: 0;
   }
 </style>
 </head>
 <body>
-
+ 
 <!-- HEADER -->
 <header class="header">
   <div class="header__inner">
@@ -73,7 +70,7 @@
     </div>
   </div>
 </header>
-
+ 
 <!-- HERO -->
 <section class="hero">
   <div class="hero__content">
@@ -83,7 +80,7 @@
     <button class="hero__cta" id="heroCta">Explorar productos</button>
   </div>
 </section>
-
+ 
 <!-- SHOP -->
 <section class="shop" id="shop">
   <div class="shop__controls">
@@ -106,7 +103,7 @@
     <p>No encontramos productos con esa búsqueda.</p>
   </div>
 </section>
-
+ 
 <!-- CARRITO SIDEBAR -->
 <aside class="cart-sidebar" id="cartSidebar" aria-hidden="true">
   <div class="cart-sidebar__header">
@@ -131,7 +128,7 @@
     <button class="btn-checkout" id="btnCheckout">Finalizar compra →</button>
   </div>
 </aside>
-
+ 
 <!-- MODAL CHECKOUT -->
 <div class="checkout-modal" id="checkoutModal" hidden>
   <div class="checkout-modal__box">
@@ -139,7 +136,7 @@
     <div class="checkout-modal__inner" id="checkoutInner"></div>
   </div>
 </div>
-
+ 
 <!-- PANEL ADMIN -->
 <div class="admin-panel" id="adminPanel" hidden>
   <div class="admin-panel__header">
@@ -172,6 +169,7 @@
             <th>Precio</th>
             <th>Stock</th>
             <th>Disponible</th>
+            <th>Grabado</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -180,19 +178,19 @@
     </div>
   </div>
 </div>
-
+ 
 <!-- MODAL PRODUCTO (ADMIN) -->
 <div class="product-modal" id="productModal" hidden>
   <div class="product-modal__box">
     <button class="product-modal__close" id="productModalClose">✕</button>
     <h3 id="productModalTitle">Nuevo producto</h3>
     <form id="productForm" class="product-form" onsubmit="return false;">
-
+ 
       <div class="form-row">
         <label>Nombre *</label>
         <input type="text" id="pNombre" required placeholder="Nombre del producto" />
       </div>
-
+ 
       <div class="form-row">
         <label>Categoría *</label>
         <select id="pCategoria">
@@ -202,22 +200,22 @@
           <option value="kits">Kits</option>
         </select>
       </div>
-
+ 
       <div class="form-row">
         <label>Precio (ARS) *</label>
         <input type="number" id="pPrecio" required min="0" placeholder="Ej: 4500" />
       </div>
-
+ 
       <div class="form-row">
         <label>Stock</label>
         <input type="number" id="pStock" min="0" value="0" />
       </div>
-
+ 
       <div class="form-row">
         <label>Descripción</label>
         <textarea id="pDescripcion" rows="3" placeholder="Descripción del producto…"></textarea>
       </div>
-
+ 
       <div class="form-row">
         <label>Imagen del producto</label>
         <div class="imagen-upload-wrap">
@@ -232,21 +230,22 @@
         </div>
         <input type="hidden" id="pImagen" />
       </div>
-
+ 
       <div class="form-row form-row--check">
         <label><input type="checkbox" id="pDestacado" /> Producto destacado</label>
         <label><input type="checkbox" id="pDisponible" checked /> Disponible para venta</label>
+        <label><input type="checkbox" id="pGrabable" /> ✦ Admite grabado personalizado</label>
       </div>
-
+ 
       <div class="form-actions">
         <button type="button" class="btn-cancel" id="btnCancelProduct">Cancelar</button>
         <button type="submit" class="btn-save" id="btnSaveProduct">Guardar producto</button>
       </div>
-
+ 
     </form>
   </div>
 </div>
-
+ 
 <!-- LOGIN ADMIN (Firebase Auth) -->
 <div class="admin-login" id="adminLogin" hidden>
   <div class="admin-login__box">
@@ -259,9 +258,9 @@
     </div>
   </div>
 </div>
-
+ 
 <div class="overlay" id="overlay" aria-hidden="true"></div>
-
+ 
 <!-- BOTÓN WHATSAPP FLOTANTE -->
 <a class="whatsapp-float" href="https://wa.me/543434565863?text=Hola%21%20Vi%20tu%20tienda%20KaayMatesStore%20y%20quer%C3%ADa%20consultar%20%F0%9F%A7%89" target="_blank" rel="noopener" aria-label="Contactar por WhatsApp">
   <span class="whatsapp-float__tooltip">💬 ¿Consultas?</span>
@@ -270,17 +269,15 @@
     <path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.533 5.856L.057 23.535a.75.75 0 00.916.916l5.743-1.476A11.953 11.953 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.891 0-3.666-.523-5.188-1.435l-.372-.223-3.862.992.999-3.77-.245-.389A9.96 9.96 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
   </svg>
 </a>
-
+ 
 <!-- FOOTER -->
 <footer class="footer">
   <div class="footer__inner">
     <div class="footer__brand"><strong>KaayMatesStore</strong></div>
     <p class="footer__copy">© 2025 · Hecho con amor en Entre Ríos, Argentina</p>
     <p class="footer__copy">Artesanos y productores de la Mesopotamia</p>
-
-    <!-- REDES SOCIALES -->
+ 
     <div class="footer__social">
-
       <!-- Instagram -->
       <a class="footer__social-btn" href="https://www.instagram.com/kaay.matesb" target="_blank" rel="noopener" aria-label="Instagram">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -290,7 +287,7 @@
         </svg>
         Instagram
       </a>
-
+ 
       <!-- Facebook -->
       <a class="footer__social-btn" href="https://www.facebook.com/KaayMatesb" target="_blank" rel="noopener" aria-label="Facebook">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -298,7 +295,7 @@
         </svg>
         Facebook
       </a>
-
+ 
       <!-- TikTok -->
       <a class="footer__social-btn" href="https://www.tiktok.com/@kaaymatesb" target="_blank" rel="noopener" aria-label="TikTok">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -306,12 +303,12 @@
         </svg>
         TikTok
       </a>
-
     </div>
   </div>
 </footer>
-
+ 
 <script type="module" src="app.js"></script>
 <script>lucide.createIcons();</script>
 </body>
 </html>
+ 
