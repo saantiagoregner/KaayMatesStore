@@ -11,6 +11,38 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Crimson+Pro:wght@300;400;600&display=swap" rel="stylesheet" />
 <script src="https://unpkg.com/lucide@latest"></script>
 <link rel="stylesheet" href="styles.css" />
+<style>
+  .footer__social {
+    display: flex;
+    gap: .75rem;
+    justify-content: center;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .footer__social-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .45rem 1.1rem;
+    border: 1.5px solid #c8a96e;
+    border-radius: 999px;
+    color: #c8a96e;
+    text-decoration: none;
+    font-size: .85rem;
+    font-family: inherit;
+    transition: background .2s, color .2s;
+  }
+
+  .footer__social-btn:hover {
+    background: #c8a96e;
+    color: #1a1a1a;
+  }
+
+  .footer__social-btn svg {
+    flex-shrink: 0;
+  }
+</style>
 </head>
 <body>
 
@@ -229,6 +261,7 @@
 </div>
 
 <div class="overlay" id="overlay" aria-hidden="true"></div>
+
 <!-- BOTÓN WHATSAPP FLOTANTE -->
 <a class="whatsapp-float" href="https://wa.me/543434565863?text=Hola%21%20Vi%20tu%20tienda%20KaayMatesStore%20y%20quer%C3%ADa%20consultar%20%F0%9F%A7%89" target="_blank" rel="noopener" aria-label="Contactar por WhatsApp">
   <span class="whatsapp-float__tooltip">💬 ¿Consultas?</span>
@@ -237,12 +270,44 @@
     <path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.533 5.856L.057 23.535a.75.75 0 00.916.916l5.743-1.476A11.953 11.953 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.891 0-3.666-.523-5.188-1.435l-.372-.223-3.862.992.999-3.77-.245-.389A9.96 9.96 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
   </svg>
 </a>
+
 <!-- FOOTER -->
 <footer class="footer">
   <div class="footer__inner">
     <div class="footer__brand"><strong>KaayMatesStore</strong></div>
     <p class="footer__copy">© 2025 · Hecho con amor en Entre Ríos, Argentina</p>
     <p class="footer__copy">Artesanos y productores de la Mesopotamia</p>
+
+    <!-- REDES SOCIALES -->
+    <div class="footer__social">
+
+      <!-- Instagram -->
+      <a class="footer__social-btn" href="https://www.instagram.com/kaay.matesb" target="_blank" rel="noopener" aria-label="Instagram">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 1.366.062 2.633.334 3.608 1.308.975.975 1.246 2.242 1.308 3.608.058 1.266.07 1.646.07 4.85s-.012 3.584-.07 4.85c-.062 1.366-.334 2.633-1.308 3.608-.975.975-2.242 1.246-3.608 1.308-1.266.058-1.646.07-4.85.07s-3.584-.012-4.85-.07c-1.366-.062-2.633-.334-3.608-1.308-.975-.975-1.246-2.242-1.308-3.608C2.175 15.584 2.163 15.204 2.163 12s.012-3.584.07-4.85c.062-1.366.334-2.633 1.308-3.608C4.516 2.497 5.783 2.225 7.15 2.163 8.416 2.105 8.796 2.163 12 2.163zm0-2.163C8.741 0 8.332.014 7.052.072 5.197.157 3.355.673 2.014 2.014.673 3.355.157 5.197.072 7.052.014 8.332 0 8.741 0 12c0 3.259.014 3.668.072 4.948.085 1.855.601 3.697 1.942 5.038 1.341 1.341 3.183 1.857 5.038 1.942C8.332 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 1.855-.085 3.697-.601 5.038-1.942 1.341-1.341 1.857-3.183 1.942-5.038.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.668-.072-4.948-.085-1.855-.601-3.697-1.942-5.038C20.645.673 18.803.157 16.948.072 15.668.014 15.259 0 12 0z"/>
+          <path d="M12 5.838a6.162 6.162 0 1 0 0 12.324A6.162 6.162 0 0 0 12 5.838zm0 10.162a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/>
+          <circle cx="18.406" cy="5.594" r="1.44"/>
+        </svg>
+        Instagram
+      </a>
+
+      <!-- Facebook -->
+      <a class="footer__social-btn" href="https://www.facebook.com/KaayMatesb" target="_blank" rel="noopener" aria-label="Facebook">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.235 2.686.235v2.97h-1.513c-1.491 0-1.956.93-1.956 1.883v2.272h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/>
+        </svg>
+        Facebook
+      </a>
+
+      <!-- TikTok -->
+      <a class="footer__social-btn" href="https://www.tiktok.com/@kaaymatesb" target="_blank" rel="noopener" aria-label="TikTok">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
+        </svg>
+        TikTok
+      </a>
+
+    </div>
   </div>
 </footer>
 
