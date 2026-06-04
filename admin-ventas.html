@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>KaayMatesStore · Panel de Ventas</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -234,6 +237,9 @@
     .badge-pagado    { background: #d1e7dd; color: #0f5132; }
     .badge-cancelado { background: #f8d7da; color: #842029; }
     .badge-enviado   { background: #cfe2ff; color: #084298; }
+    /* Grabado badges */
+    .badge-grabado   { background: #f3e8ff; color: #6b21a8; font-size: .7rem; }
+    .badge-no-grabado { background: var(--crema-osc); color: var(--text-sub); font-size: .7rem; }
 
     .select-estado {
       border-radius: 6px;
@@ -352,6 +358,20 @@
       font-size: 1rem;
     }
 
+    /* grabado highlight en tabla de detalle */
+    .grabado-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: .25rem;
+      background: #f3e8ff;
+      color: #6b21a8;
+      font-size: .75rem;
+      font-weight: 600;
+      padding: .15rem .5rem;
+      border-radius: 99px;
+      margin-left: .35rem;
+    }
+
     @media (max-width: 640px) {
       .header__nav { display: none; }
       .kpi-grid { grid-template-columns: 1fr 1fr; }
@@ -419,6 +439,11 @@
       <option value="enviado">Enviado</option>
       <option value="cancelado">Cancelado</option>
     </select>
+    <select class="select-filter" id="filterGrabado" onchange="renderVentas()">
+      <option value="">Todos los pedidos</option>
+      <option value="si">Con grabado ✦</option>
+      <option value="no">Sin grabado</option>
+    </select>
     <select class="select-filter" id="sortVentas" onchange="renderVentas()">
       <option value="reciente">Más reciente</option>
       <option value="antiguo">Más antiguo</option>
@@ -437,6 +462,7 @@
         <tr>
           <th>Cliente</th>
           <th>Productos</th>
+          <th>Grabado</th>
           <th>Fecha</th>
           <th>Total</th>
           <th>Pago</th>
@@ -445,7 +471,7 @@
         </tr>
       </thead>
       <tbody id="tablaVentas">
-        <tr><td colspan="7"><div class="loading">Cargando pedidos…</div></td></tr>
+        <tr><td colspan="8"><div class="loading">Cargando pedidos…</div></td></tr>
       </tbody>
     </table>
     <div class="empty-state" id="emptyState" style="display:none">
@@ -527,12 +553,10 @@ onAuthStateChanged(auth, user => {
 });
 
 async function iniciar() {
-  // Cargar productos para el contador KPI
   const snapProds = await getDocs(collection(db, 'productos'));
   productos = snapProds.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
   document.getElementById('kpiProductos').textContent = productos.length;
 
-  // Escuchar pedidos en tiempo real
   const q = query(collection(db, 'pedidos'), orderBy('creadoEn', 'desc'));
   onSnapshot(q, snap => {
     ventas = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
@@ -542,8 +566,27 @@ async function iniciar() {
   }, err => {
     console.error('Error al escuchar pedidos:', err);
     document.getElementById('tablaVentas').innerHTML =
-      `<tr><td colspan="7"><div class="loading" style="color:#c0392b">Error al cargar pedidos. Revisá la conexión.</div></td></tr>`;
+      `<tr><td colspan="8"><div class="loading" style="color:#c0392b">Error al cargar pedidos. Revisá la conexión.</div></td></tr>`;
   });
+}
+
+/* ── Determinar si un pedido tiene ítems con grabado ── */
+function pedidoTieneGrabado(v) {
+  return (v.items || []).some(item => {
+    // grabado es un objeto { texto, tipografia } cuando existe
+    if (item.grabado && typeof item.grabado === 'object' && item.grabado.texto) return true;
+    // fallback: buscamos en catálogo
+    const prod = productos.find(p => p.firestoreId === item.firestoreId);
+    return prod?.grabable === true;
+  });
+}
+
+/* ── Obtener todos los textos de grabado de un pedido ── */
+function getTextoGrabado(v) {
+  return (v.items || [])
+    .filter(i => i.grabado && typeof i.grabado === 'object' && i.grabado.texto)
+    .map(i => `"${i.grabado.texto}" · ${i.grabado.tipografia || ''} <em>(${i.nombre})</em>`)
+    .join('<br>');
 }
 
 /* ── KPIs ── */
@@ -562,14 +605,17 @@ function actualizarKPIs() {
 
 /* ── Tabla ── */
 function renderVentas() {
-  const q    = document.getElementById('searchInput').value.toLowerCase();
-  const est  = document.getElementById('filterEstado').value;
-  const sort = document.getElementById('sortVentas').value;
+  const q       = document.getElementById('searchInput').value.toLowerCase();
+  const est     = document.getElementById('filterEstado').value;
+  const grab    = document.getElementById('filterGrabado').value;
+  const sort    = document.getElementById('sortVentas').value;
 
   let lista = ventas.filter(v => {
-    const matchQ   = !q || (v.nombre||'').toLowerCase().includes(q) || (v._id||'').toLowerCase().includes(q) || (v.telefono||'').includes(q);
-    const matchEst = !est || v.estado === est;
-    return matchQ && matchEst;
+    const matchQ    = !q || (v.nombre||'').toLowerCase().includes(q) || (v._id||'').toLowerCase().includes(q) || (v.telefono||'').includes(q);
+    const matchEst  = !est || v.estado === est;
+    const tieneGrab = pedidoTieneGrabado(v);
+    const matchGrab = !grab || (grab === 'si' ? tieneGrab : !tieneGrab);
+    return matchQ && matchEst && matchGrab;
   });
 
   if (sort === 'reciente') lista.sort((a,b) => (b.creadoEn||'').localeCompare(a.creadoEn||''));
@@ -589,15 +635,21 @@ function renderVentas() {
   empty.style.display = 'none';
 
   tbody.innerHTML = lista.map(v => {
-    const prods = (v.items||[]).map(i => `${i.nombre} ×${i.cantidad||i.qty||1}`).join(', ') || '—';
-    const fecha = v.creadoEn ? new Date(v.creadoEn).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' }) : '—';
+    const prods    = (v.items||[]).map(i => `${i.nombre} ×${i.cantidad||i.qty||1}`).join(', ') || '—';
+    const fecha    = v.creadoEn ? new Date(v.creadoEn).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' }) : '—';
+    const tieneGrab = pedidoTieneGrabado(v);
+    const grabBadge = tieneGrab
+      ? `<span class="badge badge-grabado">✦ Sí</span>`
+      : `<span class="badge badge-no-grabado">No</span>`;
+
     return `
       <tr>
         <td>
           <strong>${v.nombre||'—'}</strong><br>
           <small style="color:var(--text-sub)">${v.telefono||''}</small>
         </td>
-        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${prods}">${prods}</td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${prods}">${prods}</td>
+        <td>${grabBadge}</td>
         <td style="white-space:nowrap">${fecha}</td>
         <td><strong>${fmt(v.total||0)}</strong></td>
         <td style="text-transform:capitalize">${v.metodoPago||'—'}</td>
@@ -617,7 +669,6 @@ function renderVentas() {
 
   lucide.createIcons();
 
-  // Cambiar estado
   tbody.querySelectorAll('.select-estado').forEach(sel => {
     sel.addEventListener('change', async () => {
       try {
@@ -628,12 +679,10 @@ function renderVentas() {
     });
   });
 
-  // Ver detalle
   tbody.querySelectorAll('[data-ver]').forEach(btn => {
     btn.addEventListener('click', () => verDetalle(btn.dataset.ver));
   });
 
-  // Eliminar
   tbody.querySelectorAll('[data-del]').forEach(btn => {
     btn.addEventListener('click', () => eliminarVenta(btn.dataset.del));
   });
@@ -650,17 +699,23 @@ function verDetalle(id) {
   const filas = (v.items||[]).map(i => {
     const cant  = i.cantidad || i.qty || 1;
     const prod  = productos.find(p => p.firestoreId === i.firestoreId);
+    const tieneGrabadoItem = i.grabado && typeof i.grabado === 'object' && i.grabado.texto;
     const thumb = prod?.imagen
       ? `<img src="${prod.imagen}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:.5rem" />`
       : '🧉';
+    const grabTag = tieneGrabadoItem
+      ? `<div style="margin-top:.25rem"><span class="grabado-tag">✦ "${i.grabado.texto}"</span> <small style="color:var(--text-sub)">${i.grabado.tipografia||''}</small></div>`
+      : '';
     return `
       <tr>
-        <td>${thumb} ${i.nombre}</td>
+        <td>${thumb} ${i.nombre}${grabTag}</td>
         <td style="text-align:center">${cant}</td>
         <td style="text-align:right">${fmt(i.precio)}</td>
         <td style="text-align:right">${fmt(i.precio * cant)}</td>
       </tr>`;
   }).join('') || `<tr><td colspan="4" style="text-align:center;color:var(--text-sub)">Sin productos</td></tr>`;
+
+  const tieneGrabado = pedidoTieneGrabado(v);
 
   document.getElementById('detalleContenido').innerHTML = `
     <h3>Detalle del pedido</h3>
@@ -673,7 +728,9 @@ function verDetalle(id) {
       <div><strong>Pago:</strong> <span style="text-transform:capitalize">${v.metodoPago||'—'}</span></div>
       <div><strong>Envío:</strong> ${v.tipoEnvio === 'sucursal' ? 'Sucursal Correo' : 'Domicilio Correo'}</div>
       <div><strong>Estado:</strong> <span class="badge ${badgeClass[v.estado]||'badge-pendiente'}">${v.estado||'—'}</span></div>
+      <div><strong>Grabado:</strong> ${tieneGrabado ? '<span class="badge badge-grabado">✦ Requiere grabado</span>' : '<span class="badge badge-no-grabado">Sin grabado</span>'}</div>
       ${v.direccion ? `<div class="detalle-full"><strong>Dirección:</strong> ${v.direccion}</div>` : ''}
+      ${tieneGrabado ? `<div class="detalle-full" style="background:#f3e8ff;padding:.6rem .75rem;border-radius:8px;border-left:3px solid #6b21a8;line-height:1.7"><strong>✦ Texto(s) para grabar:</strong><br>${getTextoGrabado(v)}</div>` : ''}
     </div>
     <table class="detalle-table">
       <thead>
@@ -730,7 +787,7 @@ function exportarCSV() {
     Swal.fire({ icon:'info', title:'Sin ventas para exportar', confirmButtonColor:'#2d4a22' });
     return;
   }
-  const header = ['ID','Cliente','Telefono','Provincia','CP','Direccion','TipoEnvio','Fecha','Subtotal','CostoEnvio','Total','MetodoPago','Estado','Productos'];
+  const header = ['ID','Cliente','Telefono','Provincia','CP','Direccion','TipoEnvio','Fecha','Subtotal','CostoEnvio','Total','MetodoPago','Estado','Grabado','Productos'];
   const rows = ventas.map(v => [
     v._id,
     `"${(v.nombre||'').replace(/"/g,'""')}"`,
@@ -745,6 +802,7 @@ function exportarCSV() {
     v.total||0,
     v.metodoPago||'',
     v.estado||'',
+    pedidoTieneGrabado(v) ? 'Sí' : 'No',
     `"${(v.items||[]).map(i=>`${i.nombre} x${i.cantidad||i.qty||1}`).join('; ')}"`,
   ].join(','));
   const csv  = [header.join(','), ...rows].join('\n');
@@ -756,7 +814,7 @@ function exportarCSV() {
   URL.revokeObjectURL(a.href);
 }
 
-/* ── Funciones globales para onclick del HTML ── */
+/* ── Globales ── */
 window.renderVentas = renderVentas;
 window.exportarCSV  = exportarCSV;
 window.cerrarModal  = id => document.getElementById(id).classList.remove('open');
@@ -768,7 +826,6 @@ window.showTab = (tab, btn) => {
   }
 };
 
-/* ── Cerrar modales al clickear overlay ── */
 document.querySelectorAll('.modal-overlay').forEach(m => {
   m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
 });

@@ -106,7 +106,6 @@ const TIPOGRAFIAS_GRABADO = [
  
 // Precargar fonts de grabado
 (function precargarFontsGrabado() {
-  const fonts = TIPOGRAFIAS_GRABADO.map(t => t.googleFont).join('|').replace(/ /g, '+');
   const link = document.createElement('link');
   link.rel  = 'stylesheet';
   link.href = `https://fonts.googleapis.com/css2?family=Great+Vibes&family=Cinzel:wght@600&family=UnifrakturMaguntia&display=swap`;
@@ -424,10 +423,15 @@ function renderProductos() {
         <span class="product-card__cat">${p.categoria}</span>
         <h3 class="product-card__name">${p.nombre}</h3>
         <p class="product-card__desc">${p.descripcion || ''}</p>
-        <div class="product-card__footer">
+        <div class="product-card__price-row">
           <span class="product-card__price">${fmt(p.precio)}</span>
+        </div>
+        <div class="card-actions">
           <button class="btn-add ${noDisp ? 'btn-add--disabled' : ''}" data-id="${p.firestoreId}" ${noDisp ? 'disabled' : ''}>
-            ${enCarrito ? '<i data-lucide="check"></i> Agregado' : '<i data-lucide="plus"></i> Agregar'}
+            ${enCarrito ? '<i data-lucide="check"></i> Agregado' : '<i data-lucide="shopping-bag"></i> Comprar'}
+          </button>
+          <button class="btn-ver" data-id="${p.firestoreId}">
+            <i data-lucide="eye"></i> Ver
           </button>
         </div>
       </div>
@@ -439,6 +443,30 @@ function renderProductos() {
   grid.querySelectorAll('.btn-add:not(.btn-add--disabled)').forEach(btn => {
     btn.addEventListener('click', () => agregarAlCarrito(btn.dataset.id));
   });
+
+  grid.querySelectorAll('.btn-ver').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const prod = productos.find(p => p.firestoreId === btn.dataset.id);
+      if (!prod) return;
+      Swal.fire({
+        title: prod.nombre,
+        html: `
+          <img src="${prod.imagen || PLACEHOLDER_IMG}" onerror="this.src=window._ph||''"
+            style="width:100%;max-height:300px;object-fit:cover;border-radius:8px;margin-bottom:1rem" />
+          <p style="color:#8c8272;font-size:.95rem">${prod.descripcion || 'Sin descripción.'}</p>
+          <p style="color:#c8a96e;font-size:1.2rem;font-weight:700;margin-top:.75rem">${fmt(prod.precio)}</p>
+        `,
+        confirmButtonText: 'Agregar al carrito',
+        confirmButtonColor: '#c8a96e',
+        showCancelButton: true,
+        cancelButtonText: 'Cerrar',
+        background: '#1a1814',
+        color: '#f0ead8',
+      }).then(res => {
+        if (res.isConfirmed) agregarAlCarrito(btn.dataset.id);
+      });
+    });
+  });
 }
  
 /* ── Carrito ────────────────────────────────────────── */
@@ -446,7 +474,6 @@ function agregarAlCarrito(firestoreId) {
   const prod = productos.find(p => p.firestoreId === firestoreId);
   if (!prod || prod.disponible === false) return;
  
-  // Si es grabable, abrir modal de grabado primero
   if (prod.grabable) {
     abrirModalGrabado(firestoreId);
     return;
@@ -456,12 +483,10 @@ function agregarAlCarrito(firestoreId) {
 }
  
 function agregarAlCarritoDirecto(firestoreId, grabado) {
-  // grabado = null | { texto, tipografia, tipografiaId }
   const prod = productos.find(p => p.firestoreId === firestoreId);
   if (!prod || prod.disponible === false) return;
  
   if (grabado) {
-    // Siempre agregar como item nuevo con grabado (puede haber el mismo mate sin grabar)
     const itemId = `${firestoreId}_grabado_${Date.now()}`;
     carrito.push({
       ...prod,
@@ -1127,4 +1152,3 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btnCancelProduct').addEventListener('click', cerrarModalProducto);
   $('btnSaveProduct').addEventListener('click', guardarProducto);
 });
- 
