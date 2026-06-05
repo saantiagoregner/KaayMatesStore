@@ -76,6 +76,7 @@ window._ph  = PLACEHOLDER_IMG;
 window._phs = PLACEHOLDER_SMALL;
  
 const ALIAS_TRANSFERENCIA = 'santiregner.mp';
+const LINK_MERCADOPAGO    = 'https://link.mercadopago.com.ar/kaaymatesstore';
  
 /* ── Grabado ────────────────────────────────────────── */
 const COSTO_GRABADO = 4000;
@@ -751,8 +752,6 @@ function pasarAPago() {
 function renderCheckoutPaso2() {
   const subtotal = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
   const total    = subtotal + chkState.costoEnvio;
-  const qrData   = encodeURIComponent(`Transferencia KaayMatesStore\nAlias: ${ALIAS_TRANSFERENCIA}\nMonto: ${total}\nCliente: ${chkState.nombre}`);
-  const qrUrl    = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${qrData}&color=c8a96e&bgcolor=1a1814`;
   const envioTexto = chkState.costoEnvio === 0 ? 'Gratis 🎉' : fmt(chkState.costoEnvio);
  
   $('checkoutInner').innerHTML = `
@@ -760,10 +759,10 @@ function renderCheckoutPaso2() {
     <h3 class="checkout-title">💳 Elegí cómo pagar</h3>
     <div class="metodo-pago-grid">
       <button class="metodo-btn ${chkState.metodoPago === 'transferencia' ? 'active' : ''}" data-metodo="transferencia">
-        <span class="metodo-icono">🏦</span><strong>Transferencia</strong><small>+ QR de pago</small>
+        <span class="metodo-icono">🏦</span><strong>Transferencia</strong><small>Alias bancario</small>
       </button>
-      <button class="metodo-btn ${chkState.metodoPago === 'qr' ? 'active' : ''}" data-metodo="qr">
-        <span class="metodo-icono">📱</span><strong>Escaneá QR</strong><small>Desde cualquier banco</small>
+      <button class="metodo-btn ${chkState.metodoPago === 'mercadopago' ? 'active' : ''}" data-metodo="mercadopago">
+        <span class="metodo-icono">💳</span><strong>Mercado Pago</strong><small>Link o QR</small>
       </button>
     </div>
     <div class="pago-detalle" id="pagoDetalle"></div>
@@ -782,23 +781,27 @@ function renderCheckoutPaso2() {
     </div>
   `;
   lucide.createIcons();
-  renderPagoDetalle(total, qrUrl);
+  renderPagoDetalle(total);
  
   document.querySelectorAll('.metodo-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       chkState.metodoPago = btn.dataset.metodo;
       document.querySelectorAll('.metodo-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      renderPagoDetalle(total, qrUrl);
+      renderPagoDetalle(total);
     });
   });
   document.getElementById('btnVolverPaso1').addEventListener('click', () => { chkState.paso = 1; renderCheckoutPaso1(); });
   document.getElementById('btnConfirmarPedido').addEventListener('click', confirmarPedido);
 }
  
-function renderPagoDetalle(total, qrUrl) {
+function renderPagoDetalle(total) {
   const detalle = document.getElementById('pagoDetalle');
   if (!detalle) return;
+
+  const mpQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(LINK_MERCADOPAGO)}&color=009ee3&bgcolor=1a1814`;
+  const transQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`Alias: ${ALIAS_TRANSFERENCIA}\nMonto: ${total}`)}&color=c8a96e&bgcolor=1a1814`;
+
   if (chkState.metodoPago === 'transferencia') {
     detalle.innerHTML = `
       <div class="pago-transferencia">
@@ -807,19 +810,30 @@ function renderPagoDetalle(total, qrUrl) {
           <div class="dato-fila"><span>Alias</span><strong class="alias-code">${ALIAS_TRANSFERENCIA}</strong></div>
           <div class="dato-fila"><span>Monto</span><strong class="monto-grande">${fmt(total)}</strong></div>
           <p class="pago-note">Después de confirmar, envianos el comprobante por WhatsApp y coordinamos el envío.</p>
+          <button class="btn-copiar" onclick="navigator.clipboard.writeText('${ALIAS_TRANSFERENCIA}').then(()=>this.textContent='¡Copiado!')">📋 Copiar alias</button>
         </div>
         <div class="pago-qr-wrap">
           <p class="qr-label">Escaneá para ver los datos</p>
-          <img class="pago-qr" src="${qrUrl}" alt="QR transferencia" onerror="this.style.display='none'" />
-          <button class="btn-copiar" onclick="navigator.clipboard.writeText('${ALIAS_TRANSFERENCIA}').then(()=>this.textContent='¡Copiado!')">📋 Copiar alias</button>
+          <img class="pago-qr" src="${transQrUrl}" alt="QR transferencia" onerror="this.style.display='none'" />
         </div>
       </div>`;
   } else {
     detalle.innerHTML = `
       <div class="pago-qr-full">
-        <p>Escaneá este QR desde la app de tu banco:</p>
-        <img class="pago-qr pago-qr--grande" src="${qrUrl}" alt="QR pago" onerror="this.style.display='none'" />
-        <p class="pago-note">El QR contiene el alias <strong>${ALIAS_TRANSFERENCIA}</strong> y el monto <strong>${fmt(total)}</strong>.</p>
+        <p>Escaneá el QR o hacé clic en el botón para pagar con Mercado Pago:</p>
+        <a href="${LINK_MERCADOPAGO}" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center">
+          <img class="pago-qr pago-qr--grande" src="${mpQrUrl}" alt="QR Mercado Pago"
+            style="cursor:pointer;border:2px solid #009ee3;border-radius:12px;padding:6px"
+            onerror="this.style.display='none'" />
+        </a>
+        <a href="${LINK_MERCADOPAGO}" target="_blank" rel="noopener noreferrer"
+          class="btn-copiar"
+          style="display:block;margin-top:.8rem;text-align:center;background:#009ee3;color:#fff;border-radius:8px;padding:.6rem 1rem;font-weight:700;text-decoration:none">
+          💳 Pagar con Mercado Pago · ${fmt(total)}
+        </a>
+        <p class="pago-note" style="margin-top:.6rem">
+          Al confirmar el pedido te enviamos el link también. El monto a abonar es <strong>${fmt(total)}</strong>.
+        </p>
       </div>`;
   }
 }
@@ -863,6 +877,25 @@ async function confirmarPedido() {
     if (btnConfirmar) { btnConfirmar.disabled = false; btnConfirmar.textContent = 'Confirmar pedido →'; }
     return;
   }
+
+  const esMercadoPago = chkState.metodoPago === 'mercadopago';
+  const pagoHtml = esMercadoPago ? `
+    <div class="transfer-box">
+      <h4>💳 Pagá con Mercado Pago</h4>
+      <a href="${LINK_MERCADOPAGO}" target="_blank" rel="noopener noreferrer"
+        style="display:block;margin:.6rem 0;text-align:center;background:#009ee3;color:#fff;border-radius:8px;padding:.7rem 1rem;font-weight:700;text-decoration:none;font-size:1rem">
+        💳 Ir a Mercado Pago · ${fmt(total)}
+      </a>
+      <p class="pago-note">Monto total: <strong>${fmt(total)}</strong>. Una vez abonado coordinamos el envío por WhatsApp.</p>
+    </div>
+  ` : `
+    <div class="transfer-box">
+      <h4>📲 Realizá tu pago</h4>
+      <div class="dato-fila"><span>Alias</span><strong class="alias-code">${ALIAS_TRANSFERENCIA}</strong></div>
+      <div class="dato-fila"><span>Monto total</span><strong class="monto-grande">${fmt(total)}</strong></div>
+      <p class="pago-note" style="margin-top:.5rem">Envianos el comprobante por WhatsApp al <strong>${chkState.telefono}</strong> y coordinamos el envío.</p>
+    </div>
+  `;
  
   $('checkoutInner').innerHTML = `
     ${renderSteps(3)}
@@ -871,12 +904,7 @@ async function confirmarPedido() {
       <h3>¡Pedido confirmado!</h3>
       <p>Gracias <strong>${chkState.nombre}</strong>, ya registramos tu pedido.</p>
       <p style="font-size:.85rem;color:#7a6540">N° de pedido: <code>${pedidoId}</code></p>
-      <div class="transfer-box">
-        <h4>📲 Realizá tu pago</h4>
-        <div class="dato-fila"><span>Alias</span><strong class="alias-code">${ALIAS_TRANSFERENCIA}</strong></div>
-        <div class="dato-fila"><span>Monto total</span><strong class="monto-grande">${fmt(total)}</strong></div>
-        <p class="pago-note" style="margin-top:.5rem">Envianos el comprobante por WhatsApp al <strong>${chkState.telefono}</strong> y coordinamos el envío.</p>
-      </div>
+      ${pagoHtml}
       <div class="envio-confirmado">
         <h4>📦 Datos de envío</h4>
         <p><strong>Tipo:</strong> ${chkState.tipoEnvio === 'domicilio' ? 'Domicilio (Correo Argentino)' : 'Sucursal (Correo Argentino)'}</p>
