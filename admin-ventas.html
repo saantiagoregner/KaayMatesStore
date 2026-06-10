@@ -645,14 +645,14 @@ function renderVentas() {
     return `
       <tr>
         <td>
-          <strong>${v.nombre||'—'}</strong><br>
+          <strong>${v.nombre||'—'} ${v.apellido||''}</strong><br>
           <small style="color:var(--text-sub)">${v.telefono||''}</small>
         </td>
         <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${prods}">${prods}</td>
         <td>${grabBadge}</td>
         <td style="white-space:nowrap">${fecha}</td>
         <td><strong>${fmt(v.total||0)}</strong></td>
-        <td style="text-transform:capitalize">${v.metodoPago||'—'}</td>
+        <td style="text-transform:capitalize">${v.tipoEntrega === 'retiro' ? '🏪 Retiro' : v.tipoEntrega === 'envio' ? '🚚 Envío' : v.metodoPago||'—'}</td>
         <td>
           <select class="select-estado" data-id="${v._id}">
             ${['pendiente','pagado','enviado','cancelado'].map(e =>
@@ -720,13 +720,14 @@ function verDetalle(id) {
   document.getElementById('detalleContenido').innerHTML = `
     <h3>Detalle del pedido</h3>
     <div class="detalle-grid">
-      <div><strong>Cliente:</strong> ${v.nombre||'—'}</div>
+      <div><strong>Cliente:</strong> ${v.nombre||'—'} ${v.apellido||''}</div>
       <div><strong>Teléfono:</strong> ${v.telefono||'—'}</div>
-      <div><strong>Provincia:</strong> ${v.provincia||'—'}</div>
-      <div><strong>CP:</strong> ${v.cp||'—'}</div>
+      ${v.email ? `<div><strong>Email:</strong> ${v.email}</div>` : ''}
+      <div><strong>Entrega:</strong> ${v.tipoEntrega === 'retiro' ? '🏪 Retiro en local' : v.tipoEntrega === 'envio' ? '🚚 Envío a domicilio' : v.tipoEnvio === 'sucursal' ? 'Sucursal Correo' : 'Domicilio Correo'}</div>
+      ${v.ciudad ? `<div><strong>Ciudad:</strong> ${v.ciudad}</div>` : ''}
+      ${v.provincia ? `<div><strong>Provincia:</strong> ${v.provincia}${v.cp ? ` · CP: ${v.cp}` : ''}</div>` : ''}
       <div><strong>Fecha:</strong> ${fecha}</div>
-      <div><strong>Pago:</strong> <span style="text-transform:capitalize">${v.metodoPago||'—'}</span></div>
-      <div><strong>Envío:</strong> ${v.tipoEnvio === 'sucursal' ? 'Sucursal Correo' : 'Domicilio Correo'}</div>
+      <div><strong>Pago:</strong> <span style="text-transform:capitalize">${v.metodoPago||'A coordinar'}</span></div>
       <div><strong>Estado:</strong> <span class="badge ${badgeClass[v.estado]||'badge-pendiente'}">${v.estado||'—'}</span></div>
       <div><strong>Grabado:</strong> ${tieneGrabado ? '<span class="badge badge-grabado">✦ Requiere grabado</span>' : '<span class="badge badge-no-grabado">Sin grabado</span>'}</div>
       ${v.direccion ? `<div class="detalle-full"><strong>Dirección:</strong> ${v.direccion}</div>` : ''}

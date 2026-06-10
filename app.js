@@ -753,6 +753,7 @@ async function generarOrden() {
         grabado:     c.grabado || null,
       })),
       subtotal,
+      total: subtotal,
     });
   } catch (err) {
     console.error('Error guardando pedido:', err);
