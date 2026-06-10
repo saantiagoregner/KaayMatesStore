@@ -522,8 +522,6 @@ function cambiarCantidad(itemId, delta) {
   else renderCarrito();
 }
  
-const UMBRAL_ENVIO_GRATIS = 50000;
- 
 function renderCarrito() {
   const items  = $('cartItems');
   const empty  = $('cartEmpty');
@@ -540,12 +538,8 @@ function renderCarrito() {
     footer.hidden   = true;
     return;
   }
-  empty.hidden  = false;
+  empty.hidden  = true;
   footer.hidden = false;
- 
-  const envioGratis = total >= UMBRAL_ENVIO_GRATIS;
-  const envio       = envioGratis ? 0 : calcularEnvio('domicilio', PROVINCIAS[0]);
-  const faltaParaGratis = UMBRAL_ENVIO_GRATIS - total;
  
   items.innerHTML = carrito.map(c => {
     const itemId = c._itemId || c.firestoreId;
@@ -568,11 +562,7 @@ function renderCarrito() {
       </div>
       <button class="cart-item__remove" data-id="${itemId}"><i data-lucide="trash-2"></i></button>
     </div>`;
-  }).join('') + (!envioGratis ? `
-    <div class="cart-envio-promo">
-      🚚 Te faltan <strong>${fmt(faltaParaGratis)}</strong> para envío gratis
-    </div>
-  ` : '');
+  }).join('');
  
   lucide.createIcons();
  
@@ -584,9 +574,8 @@ function renderCarrito() {
   });
  
   $('cartSubtotal').textContent = fmt(total);
-  $('cartEnvio').textContent    = envioGratis ? 'Gratis 🎉' : fmt(envio) + ' (estimado)';
-  $('cartTotal').textContent    = fmt(total + envio);
-  empty.hidden = true;
+  $('cartEnvio').textContent    = 'A coordinar por WhatsApp';
+  $('cartTotal').textContent    = fmt(total);
 }
  
 function abrirCarrito() {
@@ -602,265 +591,160 @@ function cerrarCarrito() {
 }
  
 /* ── Checkout ───────────────────────────────────────── */
-const TARIFAS_ENVIO = {
-  domicilio: {
-    'Buenos Aires': 2800, 'CABA': 2800, 'Entre Ríos': 2200, 'Santa Fe': 2500,
-    'Córdoba': 2500, 'Corrientes': 2600, 'Misiones': 2900, 'Chaco': 2900,
-    'Formosa': 3100, 'Santiago del Estero': 3000, 'Tucumán': 3000, 'Salta': 3200,
-    'Jujuy': 3400, 'Catamarca': 3200, 'La Rioja': 3200, 'San Juan': 3300,
-    'Mendoza': 3300, 'San Luis': 3100, 'La Pampa': 3200, 'Neuquén': 3500,
-    'Río Negro': 3600, 'Chubut': 3900, 'Santa Cruz': 4200, 'Tierra del Fuego': 4800,
-  }
-};
-TARIFAS_ENVIO.sucursal = Object.fromEntries(
-  Object.entries(TARIFAS_ENVIO.domicilio).map(([k, v]) => [k, Math.round(v * 0.75)])
-);
-const PROVINCIAS = Object.keys(TARIFAS_ENVIO.domicilio).sort();
- 
+const UMBRAL_ENVIO_GRATIS_UNUSED = 50000; // mantenido por compatibilidad
+
 let chkState = {};
- 
-function calcularEnvio(tipo, provincia) {
-  const subtotal = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
-  if (subtotal >= UMBRAL_ENVIO_GRATIS) return 0;
-  const tabla = TARIFAS_ENVIO[tipo] || TARIFAS_ENVIO.domicilio;
-  return tabla[provincia] || 3000;
-}
- 
+
 function abrirCheckout() {
   if (!carrito.length) return;
   cerrarCarrito();
-  chkState = { paso: 1, tipoEnvio: 'domicilio', provincia: PROVINCIAS[0], costoEnvio: 0, nombre: '', telefono: '', direccion: '', cp: '', metodoPago: 'transferencia' };
-  chkState.costoEnvio = calcularEnvio('domicilio', PROVINCIAS[0]);
+  chkState = {
+    nombre: '', apellido: '', telefono: '', email: '',
+    tipoEntrega: '', // 'envio' | 'retiro'
+    direccion: '', ciudad: '', provincia: '', cp: '',
+  };
   $('checkoutModal').hidden = false;
   document.body.classList.add('no-scroll');
-  renderCheckoutPaso1();
+  renderFormularioPedido();
 }
  
-function renderCheckoutPaso1() {
+function renderFormularioPedido() {
   const subtotal = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
   const resumen  = carrito.map(c => {
     const grabadoInfo = c.grabado ? ` <small class="grabado-resumen-tag">✦ "${c.grabado.texto}"</small>` : '';
     return `<tr><td>${c.nombre}${grabadoInfo} <span class="qty-tag">×${c.cantidad}</span></td><td>${fmt(c.precio * c.cantidad)}</td></tr>`;
   }).join('');
-  const provinciasOpts = PROVINCIAS.map(p =>
-    `<option value="${p}" ${p === chkState.provincia ? 'selected' : ''}>${p}</option>`
-  ).join('');
-  chkState.costoEnvio = calcularEnvio(chkState.tipoEnvio, chkState.provincia);
-  const total = subtotal + chkState.costoEnvio;
- 
+
   $('checkoutInner').innerHTML = `
-    ${renderSteps(1)}
-    <h3 class="checkout-title">📦 Elegí tu envío</h3>
-    <div class="envio-tipo">
-      <button class="envio-tipo-btn ${chkState.tipoEnvio === 'domicilio' ? 'active' : ''}" data-tipo="domicilio">
-        <span class="envio-icono">🏠</span>
-        <div><strong>Envío a domicilio</strong><small>Correo Argentino · 3-7 días hábiles</small></div>
-      </button>
-      <button class="envio-tipo-btn ${chkState.tipoEnvio === 'sucursal' ? 'active' : ''}" data-tipo="sucursal">
-        <span class="envio-icono">🏪</span>
-        <div><strong>Retiro en sucursal</strong><small>Correo Argentino · 2-5 días hábiles · 25% menos</small></div>
-      </button>
+    <h3 class="checkout-title" style="margin-bottom:1.2rem">🧉 Generá tu orden de compra</h3>
+
+    <div class="orden-form">
+
+      <p class="orden-seccion-label">👤 Tus datos</p>
+      <div class="orden-fila-2">
+        <div class="orden-campo">
+          <label class="chk-label">Nombre *</label>
+          <input type="text" id="chkNombre" placeholder="Nombre" value="${chkState.nombre}" />
+        </div>
+        <div class="orden-campo">
+          <label class="chk-label">Apellido *</label>
+          <input type="text" id="chkApellido" placeholder="Apellido" value="${chkState.apellido}" />
+        </div>
+      </div>
+      <div class="orden-fila-2">
+        <div class="orden-campo">
+          <label class="chk-label">WhatsApp / Teléfono *</label>
+          <input type="tel" id="chkTelefono" placeholder="Ej: 3434123456" value="${chkState.telefono}" />
+        </div>
+        <div class="orden-campo">
+          <label class="chk-label">Correo electrónico</label>
+          <input type="email" id="chkEmail" placeholder="tucorreo@mail.com" value="${chkState.email}" />
+        </div>
+      </div>
+
+      <p class="orden-seccion-label" style="margin-top:1.4rem">📦 ¿Cómo querés recibirlo?</p>
+      <div class="envio-tipo">
+        <button class="envio-tipo-btn ${chkState.tipoEntrega === 'envio' ? 'active' : ''}" data-entrega="envio">
+          <span class="envio-icono">🚚</span>
+          <div><strong>Envío a domicilio</strong><small>Coordinamos el costo y los detalles por WhatsApp</small></div>
+        </button>
+        <button class="envio-tipo-btn ${chkState.tipoEntrega === 'retiro' ? 'active' : ''}" data-entrega="retiro">
+          <span class="envio-icono">🏪</span>
+          <div><strong>Retiro en local</strong><small>Sin costo de envío · Coordinar día y hora por WhatsApp</small></div>
+        </button>
+      </div>
+
+      <div id="camposDireccion" style="${chkState.tipoEntrega === 'envio' ? '' : 'display:none'}">
+        <p class="orden-seccion-label" style="margin-top:1.4rem">📍 Dirección de entrega <span style="font-weight:400;color:#7a6540">(opcional, podés completarla después)</span></p>
+        <div class="orden-campo">
+          <label class="chk-label">Calle y número</label>
+          <input type="text" id="chkDireccion" placeholder="Ej: San Martín 1234" value="${chkState.direccion}" />
+        </div>
+        <div class="orden-fila-2">
+          <div class="orden-campo">
+            <label class="chk-label">Ciudad / Localidad</label>
+            <input type="text" id="chkCiudad" placeholder="Ej: Paraná" value="${chkState.ciudad}" />
+          </div>
+          <div class="orden-campo">
+            <label class="chk-label">Provincia</label>
+            <input type="text" id="chkProvincia" placeholder="Ej: Entre Ríos" value="${chkState.provincia}" />
+          </div>
+        </div>
+        <div class="orden-campo" style="max-width:200px">
+          <label class="chk-label">Código postal</label>
+          <input type="text" id="chkCP" placeholder="Ej: 3100" value="${chkState.cp}" maxlength="8" />
+        </div>
+      </div>
+
     </div>
-    <div class="envio-ubicacion">
-      <label class="chk-label">Provincia *</label>
-      <select id="chkProvincia">${provinciasOpts}</select>
-      <label class="chk-label" style="margin-top:.8rem">Código postal *</label>
-      <input type="text" id="chkCP" placeholder="Ej: 3100" value="${chkState.cp}" maxlength="8" />
-    </div>
-    <div class="costo-envio-preview" id="costoEnvioPreview">
-      <span>Costo de envío estimado</span>
-      <span class="costo-valor" id="costoValor">${chkState.costoEnvio === 0 ? 'Gratis 🎉' : fmt(chkState.costoEnvio)}</span>
-    </div>
-    <h3 class="checkout-title" style="margin-top:1.5rem">👤 Tus datos</h3>
-    <div class="checkout-datos">
-      <input type="text" id="chkNombre" placeholder="Nombre completo *" value="${chkState.nombre}" />
-      <input type="text" id="chkTelefono" placeholder="WhatsApp / Teléfono *" value="${chkState.telefono}" />
-      ${chkState.tipoEnvio === 'domicilio'
-        ? `<input type="text" id="chkDireccion" placeholder="Dirección completa *" value="${chkState.direccion}" />`
-        : `<p class="sucursal-nota">🏪 Retirás en la sucursal de Correo Argentino más cercana a tu CP.</p>`}
-    </div>
-    <div class="checkout-table-wrap">
+
+    <div class="checkout-table-wrap" style="margin-top:1.5rem">
+      <p class="orden-seccion-label">🛒 Resumen de tu pedido</p>
       <table class="checkout-table">
         <tbody>${resumen}</tbody>
         <tfoot>
-          <tr><td>Envío (${chkState.tipoEnvio === 'sucursal' ? 'sucursal' : 'domicilio'})</td><td id="envioFila">${chkState.costoEnvio === 0 ? 'Gratis 🎉' : fmt(chkState.costoEnvio)}</td></tr>
-          <tr class="checkout-total"><td><strong>Total</strong></td><td id="totalFila"><strong>${fmt(total)}</strong></td></tr>
+          <tr><td>Envío</td><td style="color:#c8a96e">A coordinar por WhatsApp</td></tr>
+          <tr class="checkout-total"><td><strong>Subtotal productos</strong></td><td><strong>${fmt(subtotal)}</strong></td></tr>
         </tfoot>
       </table>
     </div>
-    <button class="btn-confirmar" id="btnPaso1Siguiente">Continuar al pago →</button>
+
+    <button class="btn-confirmar" id="btnGenerarOrden" style="margin-top:1.5rem">
+      Generar orden de compra →
+    </button>
   `;
+
   lucide.createIcons();
- 
+
+  // Toggle dirección al elegir entrega
   document.querySelectorAll('.envio-tipo-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      chkState.tipoEnvio = btn.dataset.tipo;
-      actualizarCostoEnvio();
       document.querySelectorAll('.envio-tipo-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      const datosDiv        = document.querySelector('.checkout-datos');
-      const existeDireccion = document.getElementById('chkDireccion');
-      const existeNota      = document.querySelector('.sucursal-nota');
-      if (chkState.tipoEnvio === 'domicilio' && !existeDireccion) {
-        if (existeNota) existeNota.remove();
-        datosDiv.insertAdjacentHTML('beforeend', `<input type="text" id="chkDireccion" placeholder="Dirección completa *" value="${chkState.direccion}" />`);
-      } else if (chkState.tipoEnvio === 'sucursal' && existeDireccion) {
-        existeDireccion.remove();
-        datosDiv.insertAdjacentHTML('beforeend', `<p class="sucursal-nota">🏪 Retirás en la sucursal de Correo Argentino más cercana a tu CP.</p>`);
-      }
+      chkState.tipoEntrega = btn.dataset.entrega;
+      document.getElementById('camposDireccion').style.display =
+        chkState.tipoEntrega === 'envio' ? '' : 'none';
     });
   });
- 
-  document.getElementById('chkProvincia').addEventListener('change', actualizarCostoEnvio);
-  document.getElementById('btnPaso1Siguiente').addEventListener('click', pasarAPago);
+
+  document.getElementById('btnGenerarOrden').addEventListener('click', generarOrden);
 }
- 
-function actualizarCostoEnvio() {
-  const prov = document.getElementById('chkProvincia')?.value || chkState.provincia;
-  chkState.provincia  = prov;
-  chkState.costoEnvio = calcularEnvio(chkState.tipoEnvio, prov);
-  const subtotal   = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
-  const total      = subtotal + chkState.costoEnvio;
-  const costoValor = document.getElementById('costoValor');
-  const envioFila  = document.getElementById('envioFila');
-  const totalFila  = document.getElementById('totalFila');
-  const envioTexto = chkState.costoEnvio === 0 ? 'Gratis 🎉' : fmt(chkState.costoEnvio);
-  if (costoValor) costoValor.textContent = envioTexto;
-  if (envioFila)  envioFila.textContent  = envioTexto;
-  if (totalFila)  totalFila.innerHTML    = `<strong>${fmt(total)}</strong>`;
-}
- 
-function pasarAPago() {
-  chkState.nombre    = document.getElementById('chkNombre')?.value.trim() || '';
-  chkState.telefono  = document.getElementById('chkTelefono')?.value.trim() || '';
-  chkState.direccion = document.getElementById('chkDireccion')?.value.trim() || '';
-  chkState.cp        = document.getElementById('chkCP')?.value.trim() || '';
-  chkState.provincia = document.getElementById('chkProvincia')?.value || chkState.provincia;
- 
-  if (!chkState.nombre || !chkState.telefono || !chkState.cp) {
-    Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Completá nombre, teléfono y código postal.', confirmButtonColor: '#c8a96e' });
+
+async function generarOrden() {
+  // Leer campos
+  chkState.nombre      = document.getElementById('chkNombre')?.value.trim() || '';
+  chkState.apellido    = document.getElementById('chkApellido')?.value.trim() || '';
+  chkState.telefono    = document.getElementById('chkTelefono')?.value.trim() || '';
+  chkState.email       = document.getElementById('chkEmail')?.value.trim() || '';
+  chkState.direccion   = document.getElementById('chkDireccion')?.value.trim() || '';
+  chkState.ciudad      = document.getElementById('chkCiudad')?.value.trim() || '';
+  chkState.provincia   = document.getElementById('chkProvincia')?.value.trim() || '';
+  chkState.cp          = document.getElementById('chkCP')?.value.trim() || '';
+
+  if (!chkState.nombre || !chkState.apellido || !chkState.telefono) {
+    Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Completá nombre, apellido y teléfono.', confirmButtonColor: '#c8a96e' });
     return;
   }
-  if (chkState.tipoEnvio === 'domicilio' && !chkState.direccion) {
-    Swal.fire({ icon: 'warning', title: 'Falta la dirección', text: 'Ingresá tu dirección de entrega.', confirmButtonColor: '#c8a96e' });
+  if (!chkState.tipoEntrega) {
+    Swal.fire({ icon: 'warning', title: 'Elegí cómo recibir tu pedido', text: 'Seleccioná envío a domicilio o retiro en local.', confirmButtonColor: '#c8a96e' });
     return;
   }
-  chkState.paso = 2;
-  renderCheckoutPaso2();
-}
- 
-function renderCheckoutPaso2() {
+
   const subtotal = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
-  const total    = subtotal + chkState.costoEnvio;
-  const envioTexto = chkState.costoEnvio === 0 ? 'Gratis 🎉' : fmt(chkState.costoEnvio);
- 
-  $('checkoutInner').innerHTML = `
-    ${renderSteps(2)}
-    <h3 class="checkout-title">💳 Elegí cómo pagar</h3>
-    <div class="metodo-pago-grid">
-      <button class="metodo-btn ${chkState.metodoPago === 'transferencia' ? 'active' : ''}" data-metodo="transferencia">
-        <span class="metodo-icono">🏦</span><strong>Transferencia</strong><small>Alias bancario</small>
-      </button>
-      <button class="metodo-btn ${chkState.metodoPago === 'mercadopago' ? 'active' : ''}" data-metodo="mercadopago">
-        <span class="metodo-icono">💳</span><strong>Mercado Pago</strong><small>Link o QR</small>
-      </button>
-    </div>
-    <div class="pago-detalle" id="pagoDetalle"></div>
-    <div class="checkout-table-wrap" style="margin-top:1.2rem">
-      <table class="checkout-table">
-        <tfoot>
-          <tr><td>Productos</td><td>${fmt(subtotal)}</td></tr>
-          <tr><td>Envío (${chkState.tipoEnvio === 'sucursal' ? 'sucursal' : 'domicilio'} · ${chkState.provincia})</td><td>${envioTexto}</td></tr>
-          <tr class="checkout-total"><td><strong>Total a pagar</strong></td><td><strong>${fmt(total)}</strong></td></tr>
-        </tfoot>
-      </table>
-    </div>
-    <div class="chk-nav">
-      <button class="btn-volver" id="btnVolverPaso1">← Volver</button>
-      <button class="btn-confirmar btn-confirmar--inline" id="btnConfirmarPedido">Confirmar pedido →</button>
-    </div>
-  `;
-  lucide.createIcons();
-  renderPagoDetalle(total);
- 
-  document.querySelectorAll('.metodo-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      chkState.metodoPago = btn.dataset.metodo;
-      document.querySelectorAll('.metodo-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderPagoDetalle(total);
-    });
-  });
-  document.getElementById('btnVolverPaso1').addEventListener('click', () => { chkState.paso = 1; renderCheckoutPaso1(); });
-  document.getElementById('btnConfirmarPedido').addEventListener('click', confirmarPedido);
-}
- 
-function renderPagoDetalle(total) {
-  const detalle = document.getElementById('pagoDetalle');
-  if (!detalle) return;
 
-  const mpQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(LINK_MERCADOPAGO)}&color=009ee3&bgcolor=1a1814`;
-  const transQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`Alias: ${ALIAS_TRANSFERENCIA}\nMonto: ${total}`)}&color=c8a96e&bgcolor=1a1814`;
-
-  if (chkState.metodoPago === 'transferencia') {
-    detalle.innerHTML = `
-      <div class="pago-transferencia">
-        <div class="pago-transferencia__datos">
-          <p>Realizá la transferencia a:</p>
-          <div class="dato-fila"><span>Alias</span><strong class="alias-code">${ALIAS_TRANSFERENCIA}</strong></div>
-          <div class="dato-fila"><span>Monto</span><strong class="monto-grande">${fmt(total)}</strong></div>
-          <p class="pago-note">Después de confirmar, envianos el comprobante por WhatsApp y coordinamos el envío.</p>
-          <button class="btn-copiar" onclick="navigator.clipboard.writeText('${ALIAS_TRANSFERENCIA}').then(()=>this.textContent='¡Copiado!')">📋 Copiar alias</button>
-        </div>
-        <div class="pago-qr-wrap">
-          <p class="qr-label">Escaneá para ver los datos</p>
-          <img class="pago-qr" src="${transQrUrl}" alt="QR transferencia" onerror="this.style.display='none'" />
-        </div>
-      </div>`;
-  } else {
-    detalle.innerHTML = `
-      <div class="pago-qr-full">
-        <p>Escaneá el QR o hacé clic en el botón para pagar con Mercado Pago:</p>
-        <a href="${LINK_MERCADOPAGO}" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center">
-          <img class="pago-qr pago-qr--grande" src="${mpQrUrl}" alt="QR Mercado Pago"
-            style="cursor:pointer;border:2px solid #009ee3;border-radius:12px;padding:6px"
-            onerror="this.style.display='none'" />
-        </a>
-        <a href="${LINK_MERCADOPAGO}" target="_blank" rel="noopener noreferrer"
-          class="btn-copiar"
-          style="display:block;margin-top:.8rem;text-align:center;background:#009ee3;color:#fff;border-radius:8px;padding:.6rem 1rem;font-weight:700;text-decoration:none">
-          💳 Pagar con Mercado Pago · ${fmt(total)}
-        </a>
-        <p class="pago-note" style="margin-top:.6rem">
-          Al confirmar el pedido te enviamos el link también. El monto a abonar es <strong>${fmt(total)}</strong>.
-        </p>
-      </div>`;
-  }
-}
- 
-async function confirmarPedido() {
-  const btnConfirmar = document.getElementById('btnConfirmarPedido');
-  if (btnConfirmar) { btnConfirmar.disabled = true; btnConfirmar.textContent = 'Guardando…'; }
- 
-  const subtotal     = carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
-  const total        = subtotal + chkState.costoEnvio;
-  const resumenTexto = carrito.map(c => {
-    const grabInfo = c.grabado ? ` [Grabado: "${c.grabado.texto}" · ${c.grabado.tipografia}]` : '';
-    return `• ${c.nombre}${grabInfo} ×${c.cantidad} = ${fmt(c.precio * c.cantidad)}`;
-  }).join('\n');
-  const envioTexto = chkState.costoEnvio === 0 ? 'Gratis' : fmt(chkState.costoEnvio);
- 
+  // Guardar en Firestore
   let pedidoId = null;
   try {
     pedidoId = await fb_guardarPedido({
-      nombre:     chkState.nombre,
-      telefono:   chkState.telefono,
-      provincia:  chkState.provincia,
-      cp:         chkState.cp,
-      direccion:  chkState.direccion,
-      tipoEnvio:  chkState.tipoEnvio,
-      costoEnvio: chkState.costoEnvio,
-      metodoPago: chkState.metodoPago,
+      nombre:      chkState.nombre,
+      apellido:    chkState.apellido,
+      telefono:    chkState.telefono,
+      email:       chkState.email,
+      tipoEntrega: chkState.tipoEntrega,
+      direccion:   chkState.direccion,
+      ciudad:      chkState.ciudad,
+      provincia:   chkState.provincia,
+      cp:          chkState.cp,
       items: carrito.map(c => ({
         firestoreId: c.firestoreId,
         nombre:      c.nombre,
@@ -869,76 +753,104 @@ async function confirmarPedido() {
         grabado:     c.grabado || null,
       })),
       subtotal,
-      total,
     });
   } catch (err) {
     console.error('Error guardando pedido:', err);
     Swal.fire({ icon: 'error', title: 'Error al guardar el pedido', text: 'Revisá tu conexión e intentá de nuevo.', confirmButtonColor: '#c8a96e' });
-    if (btnConfirmar) { btnConfirmar.disabled = false; btnConfirmar.textContent = 'Confirmar pedido →'; }
     return;
   }
 
-  const esMercadoPago = chkState.metodoPago === 'mercadopago';
-  const pagoHtml = esMercadoPago ? `
-    <div class="transfer-box">
-      <h4>💳 Pagá con Mercado Pago</h4>
-      <a href="${LINK_MERCADOPAGO}" target="_blank" rel="noopener noreferrer"
-        style="display:block;margin:.6rem 0;text-align:center;background:#009ee3;color:#fff;border-radius:8px;padding:.7rem 1rem;font-weight:700;text-decoration:none;font-size:1rem">
-        💳 Ir a Mercado Pago · ${fmt(total)}
-      </a>
-      <p class="pago-note">Monto total: <strong>${fmt(total)}</strong>. Una vez abonado coordinamos el envío por WhatsApp.</p>
-    </div>
-  ` : `
-    <div class="transfer-box">
-      <h4>📲 Realizá tu pago</h4>
-      <div class="dato-fila"><span>Alias</span><strong class="alias-code">${ALIAS_TRANSFERENCIA}</strong></div>
-      <div class="dato-fila"><span>Monto total</span><strong class="monto-grande">${fmt(total)}</strong></div>
-      <p class="pago-note" style="margin-top:.5rem">Envianos el comprobante por WhatsApp al <strong>${chkState.telefono}</strong> y coordinamos el envío.</p>
-    </div>
-  `;
- 
+  // Armar mensaje WhatsApp
+  const itemsTexto = carrito.map(c => {
+    const grabInfo = c.grabado ? ` ✦ Grabado: "${c.grabado.texto}" (${c.grabado.tipografia})` : '';
+    return `  • ${c.nombre}${grabInfo} × ${c.cantidad} → ${fmt(c.precio * c.cantidad)}`;
+  }).join('\n');
+
+  const entregaTexto = chkState.tipoEntrega === 'retiro'
+    ? '🏪 Retiro en local'
+    : '🚚 Envío a domicilio';
+
+  let direccionTexto = '';
+  if (chkState.tipoEntrega === 'envio') {
+    const partes = [chkState.direccion, chkState.ciudad, chkState.provincia, chkState.cp].filter(Boolean);
+    if (partes.length) direccionTexto = `\n📍 Dirección: ${partes.join(', ')}`;
+  }
+
+  const emailTexto = chkState.email ? `\n📧 Email: ${chkState.email}` : '';
+
+  const mensaje = `🧉 *ORDEN DE COMPRA – KaayMatesStore*
+━━━━━━━━━━━━━━━━━━━━
+👤 *Cliente:* ${chkState.nombre} ${chkState.apellido}
+📱 *Teléfono:* ${chkState.telefono}${emailTexto}
+━━━━━━━━━━━━━━━━━━━━
+🛒 *Productos:*
+${itemsTexto}
+━━━━━━━━━━━━━━━━━━━━
+💰 *Subtotal:* ${fmt(subtotal)}
+${entregaTexto}${direccionTexto}
+━━━━━━━━━━━━━━━━━━━━
+N° de orden: ${pedidoId}
+Hola! Acabo de hacer mi orden en la tienda y quiero coordinar el pago y la entrega 🙌`;
+
+  const urlWsp = `https://wa.me/543434565863?text=${encodeURIComponent(mensaje)}`;
+
+  // Render pantalla de confirmación
+  const resumenHtml = carrito.map(c => {
+    const grabadoInfo = c.grabado ? ` <small class="grabado-resumen-tag">✦ "${c.grabado.texto}"</small>` : '';
+    return `<tr><td>${c.nombre}${grabadoInfo} <span class="qty-tag">×${c.cantidad}</span></td><td>${fmt(c.precio * c.cantidad)}</td></tr>`;
+  }).join('');
+
   $('checkoutInner').innerHTML = `
-    ${renderSteps(3)}
     <div class="checkout-success">
       <div class="success-icon">🧉</div>
-      <h3>¡Pedido confirmado!</h3>
-      <p>Gracias <strong>${chkState.nombre}</strong>, ya registramos tu pedido.</p>
-      <p style="font-size:.85rem;color:#7a6540">N° de pedido: <code>${pedidoId}</code></p>
-      ${pagoHtml}
-      <div class="envio-confirmado">
-        <h4>📦 Datos de envío</h4>
-        <p><strong>Tipo:</strong> ${chkState.tipoEnvio === 'domicilio' ? 'Domicilio (Correo Argentino)' : 'Sucursal (Correo Argentino)'}</p>
-        <p><strong>Provincia:</strong> ${chkState.provincia} · CP: ${chkState.cp}</p>
-        ${chkState.tipoEnvio === 'domicilio' ? `<p><strong>Dirección:</strong> ${chkState.direccion}</p>` : '<p>Retirás en la sucursal más cercana a tu CP.</p>'}
-        <p><strong>Costo de envío:</strong> ${envioTexto}</p>
+      <h3>¡Orden lista!</h3>
+      <p>Gracias <strong>${chkState.nombre}</strong>, tu orden fue generada.</p>
+      <p style="font-size:.82rem;color:#7a6540;margin-bottom:1rem">N° de orden: <code>${pedidoId}</code></p>
+
+      <div class="orden-resumen-box">
+        <p class="orden-seccion-label" style="margin:0 0 .6rem">Resumen del pedido</p>
+        <table class="checkout-table" style="margin:0">
+          <tbody>${resumenHtml}</tbody>
+          <tfoot>
+            <tr class="checkout-total">
+              <td><strong>Subtotal</strong></td>
+              <td><strong>${fmt(subtotal)}</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+        <div class="orden-datos-cliente">
+          <p>👤 ${chkState.nombre} ${chkState.apellido} · 📱 ${chkState.telefono}</p>
+          ${chkState.email ? `<p>📧 ${chkState.email}</p>` : ''}
+          <p>${chkState.tipoEntrega === 'retiro' ? '🏪 Retiro en local' : '🚚 Envío a domicilio'}</p>
+          ${chkState.tipoEntrega === 'envio' && (chkState.direccion || chkState.ciudad)
+            ? `<p>📍 ${[chkState.direccion, chkState.ciudad, chkState.provincia, chkState.cp].filter(Boolean).join(', ')}</p>`
+            : ''}
+        </div>
       </div>
-      <div class="checkout-resumen-final">
-        <h4>Resumen</h4>
-        <pre>${resumenTexto}\n\nEnvío (${chkState.tipoEnvio}): ${envioTexto}\nTotal: ${fmt(total)}</pre>
-      </div>
-      <button class="btn-confirmar" id="btnCerrarCheckout">Entendido ✓</button>
+
+      <p class="orden-wsp-nota">Tocá el botón para enviarnos la orden por WhatsApp y coordinamos el pago y la entrega 👇</p>
+
+      <a class="btn-wsp-orden" href="${urlWsp}" target="_blank" rel="noopener">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+          <path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.533 5.856L.057 23.535a.75.75 0 00.916.916l5.743-1.476A11.953 11.953 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.891 0-3.666-.523-5.188-1.435l-.372-.223-3.862.992.999-3.77-.245-.389A9.96 9.96 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+        </svg>
+        Enviar orden por WhatsApp
+      </a>
+
+      <button class="btn-confirmar" id="btnCerrarCheckout" style="margin-top:.8rem;background:transparent;border:1.5px solid #c8a96e;color:#c8a96e">
+        Cerrar
+      </button>
     </div>
   `;
+
   lucide.createIcons();
   carrito = [];
   renderCarrito();
   renderProductos();
-  $('btnCerrarCheckout').addEventListener('click', cerrarCheckout);
+  document.getElementById('btnCerrarCheckout').addEventListener('click', cerrarCheckout);
 }
- 
-function renderSteps(activo) {
-  const steps = [{ n: 1, label: 'Envío' }, { n: 2, label: 'Pago' }, { n: 3, label: 'Confirmación' }];
-  return `<div class="checkout-steps">
-    ${steps.map(s => `
-      <div class="checkout-step ${s.n === activo ? 'checkout-step--active' : s.n < activo ? 'checkout-step--done' : ''}">
-        <span class="checkout-step__num">${s.n < activo ? '✓' : s.n}</span>
-        <span>${s.label}</span>
-      </div>
-      ${s.n < steps.length ? '<div class="step-line"></div>' : ''}
-    `).join('')}
-  </div>`;
-}
- 
+
 function cerrarCheckout() {
   $('checkoutModal').hidden = true;
   document.body.classList.remove('no-scroll');
