@@ -2,6 +2,7 @@
    KaayMatesStore – app.js
    Firebase Firestore + Authentication integrado
    + Grabado personalizado
+   + Carrusel de imágenes por producto
    ===================================================== */
  
 /* ── Firebase ─────────────────────────────────────── */
@@ -263,10 +264,18 @@ let carrito          = [];
 let filtroActual     = 'todos';
 let adminLoggedIn    = false;
 let editingProductId = null;
+let imagenesActuales = []; // imágenes del producto en edición (admin)
  
 /* ── Helpers UI ─────────────────────────────────────── */
 const $ = id => document.getElementById(id);
 const fmt = n => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
+ 
+/* Devuelve siempre un array de imágenes para un producto (compatibilidad con productos viejos que solo tienen "imagen") */
+function getImagenesProducto(p) {
+  if (Array.isArray(p.imagenes) && p.imagenes.length) return p.imagenes;
+  if (p.imagen) return [p.imagen];
+  return [];
+}
  
 /* ── Auth ───────────────────────────────────────────── */
 onAuthStateChanged(auth, (user) => {
@@ -306,46 +315,72 @@ async function cerrarSesionAdmin() {
   cerrarAdmin();
 }
  
-/* ── Upload de imagen ───────────────────────────────── */
+/* ── Upload de imágenes (múltiples) ─────────────────── */
+function renderImagenesPreview() {
+  const grid = document.getElementById('imagenesPreviewGrid');
+  if (!grid) return;
+
+  grid.innerHTML = imagenesActuales.map((img, idx) => `
+    <div class="img-preview-item">
+      <img src="${img}" alt="Imagen ${idx + 1}" />
+      ${idx === 0 ? '<span class="img-preview-principal">Principal</span>' : ''}
+      <button type="button" class="img-preview-remove" data-idx="${idx}" title="Quitar">✕</button>
+    </div>
+  `).join('');
+
+  // Mantener compatibilidad: pImagen = primera imagen (principal)
+  $('pImagen').value    = imagenesActuales[0] || '';
+  $('pImagenes').value  = JSON.stringify(imagenesActuales);
+
+  grid.querySelectorAll('.img-preview-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      imagenesActuales.splice(parseInt(btn.dataset.idx, 10), 1);
+      renderImagenesPreview();
+    });
+  });
+}
+
 function configurarUploadImagen() {
   const inputFile = document.getElementById('pImagenFile');
   const btnFoto   = document.getElementById('btnTomarFoto');
-  const btnQuitar = document.getElementById('btnQuitarFoto');
- 
+
   btnFoto?.addEventListener('click', () => inputFile.click());
- 
+
   inputFile?.addEventListener('change', function () {
-    const file = this.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function (ev) {
-      const img = new Image();
-      img.onload = function () {
-        const MAX = 800;
-        let w = img.width, h = img.height;
-        if (w > MAX || h > MAX) {
-          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-          else       { w = Math.round(w * MAX / h); h = MAX; }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        const base64 = canvas.toDataURL('image/jpeg', 0.75);
-        document.getElementById('pImagen').value = base64;
-        document.getElementById('imagenPreview').src = base64;
-        document.getElementById('imagenPreviewWrap').style.display = 'flex';
-        lucide.createIcons();
+    const files = Array.from(this.files || []);
+    if (!files.length) return;
+
+    let pendientes = files.length;
+
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = function (ev) {
+        const img = new Image();
+        img.onload = function () {
+          const MAX = 800;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+            else       { w = Math.round(w * MAX / h); h = MAX; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          const base64 = canvas.toDataURL('image/jpeg', 0.75);
+
+          imagenesActuales.push(base64);
+
+          pendientes--;
+          if (pendientes === 0) {
+            renderImagenesPreview();
+            lucide.createIcons();
+            inputFile.value = '';
+          }
+        };
+        img.src = ev.target.result;
       };
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
- 
-  btnQuitar?.addEventListener('click', function () {
-    document.getElementById('pImagen').value = '';
-    document.getElementById('imagenPreview').src = '';
-    document.getElementById('imagenPreviewWrap').style.display = 'none';
-    document.getElementById('pImagenFile').value = '';
+      reader.readAsDataURL(file);
+    });
   });
 }
  
@@ -412,13 +447,16 @@ function renderProductos() {
     const noDisp    = p.disponible === false;
     const enCarrito = carrito.find(c => c.firestoreId === p.firestoreId);
     const esGrabable = !!p.grabable;
+    const imgs = getImagenesProducto(p);
+    const imgPrincipal = imgs[0] || '';
     return `
     <article class="product-card ${noDisp ? 'product-card--agotado' : ''}" data-id="${p.firestoreId}">
       ${p.destacado ? '<span class="product-card__badge">Destacado</span>' : ''}
       ${noDisp ? '<span class="product-card__badge product-card__badge--agotado">Sin stock</span>' : ''}
       ${esGrabable && !noDisp ? '<span class="product-card__badge product-card__badge--grabado">✦ Grabado disponible</span>' : ''}
       <div class="product-card__img-wrap">
-        <img class="product-card__img" src="${p.imagen || ''}" alt="${p.nombre}" loading="lazy" onerror="this.onerror=null;this.src=window._ph||''" />
+        <img class="product-card__img" src="${imgPrincipal}" alt="${p.nombre}" loading="lazy" onerror="this.onerror=null;this.src=window._ph||''" />
+        ${imgs.length > 1 ? `<span class="product-card__img-count"><i data-lucide="images"></i> ${imgs.length}</span>` : ''}
       </div>
       <div class="product-card__body">
         <span class="product-card__cat">${p.categoria}</span>
@@ -446,27 +484,71 @@ function renderProductos() {
   });
 
   grid.querySelectorAll('.btn-ver').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const prod = productos.find(p => p.firestoreId === btn.dataset.id);
-      if (!prod) return;
-      Swal.fire({
-        title: prod.nombre,
-        html: `
-          <img src="${prod.imagen || PLACEHOLDER_IMG}" onerror="this.src=window._ph||''"
-            style="width:100%;max-height:300px;object-fit:cover;border-radius:8px;margin-bottom:1rem" />
-          <p style="color:#8c8272;font-size:.95rem">${prod.descripcion || 'Sin descripción.'}</p>
-          <p style="color:#c8a96e;font-size:1.2rem;font-weight:700;margin-top:.75rem">${fmt(prod.precio)}</p>
-        `,
-        confirmButtonText: 'Agregar al carrito',
-        confirmButtonColor: '#c8a96e',
-        showCancelButton: true,
-        cancelButtonText: 'Cerrar',
-        background: '#1a1814',
-        color: '#f0ead8',
-      }).then(res => {
-        if (res.isConfirmed) agregarAlCarrito(btn.dataset.id);
+    btn.addEventListener('click', () => abrirVistaProducto(btn.dataset.id));
+  });
+}
+
+/* ── Vista de producto con carrusel ─────────────────── */
+function abrirVistaProducto(firestoreId) {
+  const prod = productos.find(p => p.firestoreId === firestoreId);
+  if (!prod) return;
+
+  const imgs = getImagenesProducto(prod);
+  const lista = imgs.length ? imgs : [PLACEHOLDER_IMG];
+
+  const carruselHtml = lista.length > 1 ? `
+    <div class="swal-carrusel">
+      <div class="swal-carrusel__main">
+        <button type="button" class="swal-carrusel__arrow swal-carrusel__arrow--prev" id="swalCarruselPrev" aria-label="Anterior">‹</button>
+        <img id="swalCarruselImg" src="${lista[0]}" onerror="this.src=window._ph||''"
+          style="width:100%;max-height:300px;object-fit:cover;border-radius:8px" />
+        <button type="button" class="swal-carrusel__arrow swal-carrusel__arrow--next" id="swalCarruselNext" aria-label="Siguiente">›</button>
+      </div>
+      <div class="swal-carrusel-thumbs">
+        ${lista.map((img, i) => `<img src="${img}" data-idx="${i}" class="swal-thumb ${i === 0 ? 'active' : ''}" onerror="this.src=window._phs||''" />`).join('')}
+      </div>
+    </div>
+  ` : `
+    <img src="${lista[0]}" onerror="this.src=window._ph||''"
+      style="width:100%;max-height:300px;object-fit:cover;border-radius:8px;margin-bottom:1rem" />
+  `;
+
+  Swal.fire({
+    title: prod.nombre,
+    html: `
+      ${carruselHtml}
+      <p style="color:#8c8272;font-size:.95rem;margin-top:.75rem">${prod.descripcion || 'Sin descripción.'}</p>
+      <p style="color:#c8a96e;font-size:1.2rem;font-weight:700;margin-top:.75rem">${fmt(prod.precio)}</p>
+    `,
+    confirmButtonText: 'Agregar al carrito',
+    confirmButtonColor: '#c8a96e',
+    showCancelButton: true,
+    cancelButtonText: 'Cerrar',
+    background: '#1a1814',
+    color: '#f0ead8',
+    didOpen: () => {
+      if (lista.length <= 1) return;
+
+      let idx = 0;
+      const imgEl   = document.getElementById('swalCarruselImg');
+      const thumbs  = Array.from(document.querySelectorAll('.swal-thumb'));
+      const btnPrev = document.getElementById('swalCarruselPrev');
+      const btnNext = document.getElementById('swalCarruselNext');
+
+      const irA = (nuevoIdx) => {
+        idx = (nuevoIdx + lista.length) % lista.length;
+        imgEl.src = lista[idx];
+        thumbs.forEach((t, i) => t.classList.toggle('active', i === idx));
+      };
+
+      thumbs.forEach(thumb => {
+        thumb.addEventListener('click', () => irA(parseInt(thumb.dataset.idx, 10)));
       });
-    });
+      btnPrev?.addEventListener('click', () => irA(idx - 1));
+      btnNext?.addEventListener('click', () => irA(idx + 1));
+    },
+  }).then(res => {
+    if (res.isConfirmed) agregarAlCarrito(firestoreId);
   });
 }
  
@@ -543,13 +625,15 @@ function renderCarrito() {
  
   items.innerHTML = carrito.map(c => {
     const itemId = c._itemId || c.firestoreId;
+    const imgs = getImagenesProducto(c);
+    const imgPrincipal = imgs[0] || '';
     const grabadoTag = c.grabado ? `
       <span class="cart-item__grabado">
         ✦ "${c.grabado.texto}" · ${c.grabado.tipografia}
       </span>` : '';
     return `
     <div class="cart-item">
-      <img class="cart-item__img" src="${c.imagen || ''}" alt="${c.nombre}" onerror="this.onerror=null;this.src=window._phs||''" />
+      <img class="cart-item__img" src="${imgPrincipal}" alt="${c.nombre}" onerror="this.onerror=null;this.src=window._phs||''" />
       <div class="cart-item__info">
         <span class="cart-item__name">${c.nombre}</span>
         ${grabadoTag}
@@ -968,20 +1052,18 @@ function abrirModalProducto(firestoreId = null) {
       $('pPrecio').value      = p.precio;
       $('pStock').value       = p.stock ?? 0;
       $('pDescripcion').value = p.descripcion || '';
-      $('pImagen').value      = p.imagen || '';
-      if (p.imagen) {
-        document.getElementById('imagenPreview').src = p.imagen;
-        document.getElementById('imagenPreviewWrap').style.display = 'flex';
-      } else {
-        document.getElementById('imagenPreviewWrap').style.display = 'none';
-      }
+
+      imagenesActuales = getImagenesProducto(p);
+      renderImagenesPreview();
+
       $('pDestacado').checked  = !!p.destacado;
       $('pDisponible').checked = p.disponible !== false;
       $('pGrabable').checked   = !!p.grabable;
     }
   } else {
     $('productForm').reset();
-    document.getElementById('imagenPreviewWrap').style.display = 'none';
+    imagenesActuales = [];
+    renderImagenesPreview();
     $('pDisponible').checked = true;
     $('pGrabable').checked   = false;
   }
@@ -1008,7 +1090,8 @@ async function guardarProducto() {
     precio,
     stock:       parseInt($('pStock').value) || 0,
     descripcion: $('pDescripcion').value.trim(),
-    imagen:      $('pImagen').value.trim(),
+    imagen:      imagenesActuales[0] || '',
+    imagenes:    imagenesActuales,
     destacado:   $('pDestacado').checked,
     disponible:  $('pDisponible').checked,
     grabable:    $('pGrabable').checked,

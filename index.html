@@ -220,18 +220,16 @@
       </div>
  
       <div class="form-row">
-        <label>Imagen del producto</label>
+        <label>Imágenes del producto (podés agregar varias)</label>
         <div class="imagen-upload-wrap">
-          <input type="file" id="pImagenFile" accept="image/*" capture="environment" style="display:none" />
+          <input type="file" id="pImagenFile" accept="image/*" capture="environment" multiple style="display:none" />
           <button type="button" class="btn-foto" id="btnTomarFoto">
-            <i data-lucide="camera"></i> Sacar foto / Elegir imagen
+            <i data-lucide="camera"></i> Agregar fotos
           </button>
-          <div class="imagen-preview-wrap" id="imagenPreviewWrap" style="display:none">
-            <img id="imagenPreview" src="" alt="Preview" />
-            <button type="button" class="btn-quitar-foto" id="btnQuitarFoto">✕ Quitar</button>
-          </div>
+          <div class="imagenes-preview-grid" id="imagenesPreviewGrid"></div>
         </div>
         <input type="hidden" id="pImagen" />
+        <input type="hidden" id="pImagenes" />
       </div>
  
       <div class="form-row form-row--check">
@@ -314,4 +312,3 @@
 <script>lucide.createIcons();</script>
 </body>
 </html>
- 
